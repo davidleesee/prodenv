@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>//ProdEnv - QueryOps</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<style>
+  :root{
+    --titlebar:#1f4fb0;
+    --menubar:#e8e8e8;
+    --border:#a8a8a8;
+    --sidebar-bg:#dedede;
+    --sidebar-active:#c9dcf5;
+    --accent:#1f4fb0;
+    --red:#c0392b;
+    --green:#1e8e57;
+    --sans: 'Segoe UI', Tahoma, Arial, sans-serif;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;font-family:var(--sans);}
+  body{
+    background:#4a4a4a url('images/desktop-wallpaper.jpg') center/cover no-repeat;
+  }
+
+  .system-bar{
+    position:fixed;top:0;left:0;right:0;height:34px;
+    background:#0d0d0f;color:#e8e8e8;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 16px;font-size:13px;z-index:50;
+    font-family:var(--sans);
+  }
+  .system-bar .sb-left{display:flex;align-items:center;gap:7px;font-weight:600;}
+  .system-bar .sb-left svg{flex-shrink:0;}
+  .system-bar .sb-divider{color:#555;font-weight:400;margin:0 2px;}
+  .system-bar .sb-left #sbUserName{color:#a8b8d8;font-weight:500;font-size:12.5px;}
+  .system-bar .sb-center{font-family:var(--mono);color:#cfcfcf;font-size:12.5px;}
+  .system-bar .sb-right{display:flex;align-items:center;gap:14px;color:#cfcfcf;}
+  .system-bar .sb-right svg{display:block;}
+
+  .admin-panel{
+    position:absolute;top:26px;right:0;
+    background:#1c1c1f;border:1px solid #333;border-radius:6px;
+    padding:10px;width:240px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.5);
+    display:flex;flex-direction:column;gap:6px;
+    z-index:300;
+  }
+  .admin-panel.hidden{display:none;}
+  .admin-panel-title{
+    font-family:var(--mono);font-size:11px;color:#888;
+    text-transform:uppercase;letter-spacing:1px;
+    padding:2px 4px 6px;
+  }
+  .admin-panel button{
+    background:#2a2a30;color:#e0e0e0;border:1px solid #3a3a42;
+    border-radius:4px;padding:8px 10px;font-size:12.5px;
+    text-align:left;cursor:pointer;font-family:var(--sans);
+  }
+  .admin-panel button:hover{background:#34343c;}
+  .admin-panel-divider{height:1px;background:#333;margin:4px 0;}
+  .admin-panel button.admin-danger{color:#ff8a8a;border-color:#4a2a2a;}
+  .admin-panel button.admin-danger:hover{background:#3a2020;}
+
+  .window{
+    max-width:1400px;margin:54px auto 20px;
+    background:#fff;border:1px solid #333;
+    box-shadow:0 12px 40px rgba(0,0,0,0.4);
+    display:flex;flex-direction:column;
+    height:calc(100vh - 74px);
+  }
+  .titlebar{
+    background:var(--titlebar);color:#fff;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:6px 10px;font-size:13px;flex-shrink:0;
+  }
+  .titlebar .controls span{
+    display:inline-block;width:14px;height:14px;margin-left:6px;
+    background:rgba(255,255,255,0.25);border-radius:2px;text-align:center;
+    font-size:11px;line-height:14px;
+  }
+  .menubar{
+    background:var(--menubar);border-bottom:1px solid var(--border);
+    padding:4px 10px;font-size:12.5px;color:#333;flex-shrink:0;
+  }
+  .menubar span{margin-right:16px;cursor:default;}
+
+  .progress-row{
+    display:flex;align-items:center;gap:10px;
+    padding:6px 12px;border-bottom:1px solid var(--border);
+    background:#f4f4f4;flex-shrink:0;
+  }
+  .progress-track{
+    flex:1;height:14px;background:#fff;border:1px solid var(--border);border-radius:2px;overflow:hidden;
+  }
+  .progress-fill{height:100%;background:var(--accent);width:0%;transition:width .3s ease;}
+  .progress-pct{font-size:11.5px;color:#555;font-family:var(--mono);width:38px;text-align:right;}
+
+  .body-row{flex:1;display:flex;overflow:hidden;}
+
+  .sidebar{
+    width:230px;background:var(--sidebar-bg);
+    border-right:1px solid var(--border);
+    overflow-y:auto;flex-shrink:0;
+  }
+
+  @media (max-width: 768px){
+    .body-row{flex-direction:column;overflow:visible;height:auto;}
+    .sidebar{width:100%;max-height:180px;flex-shrink:0;}
+  }
+
+  .sidebar-tab{
+    display:flex;align-items:center;gap:6px;
+    padding:8px 14px;font-size:13px;color:#333;
+    border-bottom:1px solid #cfcfcf;background:#eaeaea;
+  }
+  .sidebar-tab .close{margin-left:auto;color:#888;font-size:13px;}
+  .nav-item{
+    padding:10px 16px 10px 24px;font-size:13px;color:#333;
+    cursor:pointer;border-bottom:1px solid #d2d2d2;
+    display:flex;align-items:center;gap:6px;
+  }
+  .nav-item::before{content:"-";color:#666;}
+  .nav-item:hover:not(.locked){background:#e4edfa;}
+  .nav-item.active{background:var(--sidebar-active);font-weight:600;}
+  .nav-item.locked{color:#a5a5a5;cursor:not-allowed;}
+  .nav-item.locked::after{content:"🔒";margin-left:auto;font-size:10px;}
+
+  .content-pane{flex:1;overflow-y:auto;background:#fff;padding:36px 44px;}
+  .content-pane h2{font-size:24px;margin-bottom:18px;color:#1a1a1a;}
+  .content-pane h3{font-size:16px;margin:26px 0 10px;color:var(--accent);}
+  .content-pane p{font-size:14.5px;color:#333;line-height:1.65;margin-bottom:14px;max-width:820px;}
+  .content-pane p b{color:#000;}
+
+  pre.snippet{
+    background:#1c1c1c;color:#e0e0e0;
+    border:1px solid #333;border-radius:3px;
+    padding:14px 18px;font-family:var(--mono);font-size:13px;
+    margin:14px 0;overflow-x:auto;max-width:820px;
+  }
+  .kw{color:#7fb3ff;} .fn{color:#f2994a;} .str{color:#93d99b;}
+
+  table.ref{border-collapse:collapse;margin:14px 0;font-size:13px;max-width:820px;width:100%;}
+  table.ref th, table.ref td{border:1px solid #ccc;padding:7px 10px;text-align:left;}
+  table.ref th{background:#f0f0f0;font-weight:600;}
+  table.ref code{font-family:var(--mono);color:var(--red);}
+
+  .schema-ref{
+    display:inline-block;border:1px solid #ccc;border-radius:3px;
+    padding:10px 14px;margin:10px 0 4px;background:#f7f7f7;
+  }
+  .schema-ref .tname{font-family:var(--mono);font-weight:700;color:var(--red);font-size:12.5px;margin-bottom:4px;}
+  .schema-ref .cols{font-family:var(--mono);font-size:12px;color:#444;}
+
+  /* Exercise workbench */
+  .workbench{
+    border:1px solid var(--border);margin-top:20px;max-width:100%;
+    background:#fafafa;
+  }
+  .workbench-header{
+    background:#eee;border-bottom:1px solid var(--border);
+    padding:8px 14px;font-size:12.5px;font-weight:600;color:#444;
+  }
+  .workbench-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);}
+  @media(max-width:800px){.workbench-body{grid-template-columns:minmax(0,1fr);}}
+  .task-list{padding:16px 18px;border-right:1px solid var(--border);min-width:0;}
+  .task-list ol{list-style:none;counter-reset:t;}
+  .task-list li{
+    counter-increment:t;position:relative;padding:7px 0 7px 22px;
+    font-size:13px;color:#555;
+  }
+  .task-list li::before{content:counter(t)".";position:absolute;left:0;font-weight:700;}
+  .task-list li.pending{color:#999;}
+  .task-list li.current{color:var(--red);font-weight:600;}
+  .task-list li.complete{color:var(--green);}
+
+  .workbench-right{padding:14px;min-width:0;}
+  .table-frame-wrap{position:relative;min-width:0;}
+  .table-frame{
+    border:1px solid var(--border);max-height:460px;overflow:auto;
+    background:#fff;margin-bottom:0;max-width:100%;
+  }
+  .error-banner{
+    position:absolute;bottom:6px;left:6px;
+    background:#2f6fd6;color:#fff;
+    font-family:var(--mono);font-size:12px;
+    padding:5px 10px;border-radius:2px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.25);
+    max-width:90%;
+    z-index:5;
+  }
+  table.result-table{border-collapse:collapse;font-family:var(--mono);font-size:12px;white-space:nowrap;width:max-content;min-width:100%;}
+  table.result-table th{background:#e8e8e8;padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);position:sticky;top:0;}
+  table.result-table td{padding:5px 10px;border-bottom:1px solid #eee;}
+  .table-empty,.table-error{padding:14px;color:#888;font-family:var(--mono);font-size:12px;}
+  .table-error{color:var(--red);}
+
+  textarea.query-box{
+    width:100%;min-height:80px;border:1px solid var(--border);border-top:none;
+    font-family:var(--mono);font-size:13px;line-height:1.5;
+    padding:12px 10px 10px;resize:vertical;
+    background:#fff;color:#111;
+  }
+  textarea.query-box:focus{outline:none;border-color:var(--accent);}
+
+  .workbench-footer{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:8px 14px;border-top:1px solid var(--border);background:#f4f4f4;
+  }
+  .reset-link{background:none;border:none;color:#888;font-size:11px;text-transform:uppercase;cursor:pointer;}
+  .reset-link:hover{color:#333;}
+  .continue-btn{
+    padding:8px 20px;border-radius:2px;border:1px solid var(--border);
+    background:#ccc;color:#888;font-size:13px;font-weight:600;cursor:not-allowed;
+  }
+  .continue-btn.ready{background:var(--accent);color:#fff;border-color:var(--accent);cursor:pointer;}
+  .continue-btn.done{background:var(--green);color:#fff;border-color:var(--green);cursor:default;}
+
+  .statusbar{
+    border-top:1px solid var(--border);background:var(--menubar);
+    padding:5px 12px;font-size:11px;color:#777;
+    display:flex;justify-content:space-between;flex-shrink:0;
+  }
+
+  .loading-screen{
+    position:fixed;inset:0;background:#4a4a4a;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;z-index:100;color:#ddd;font-family:var(--mono);font-size:13px;
+  }
+  .spinner{width:26px;height:26px;border-radius:50%;border:3px solid #777;border-top-color:#fff;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* Intro modal */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.45);
+    backdrop-filter:blur(4px);
+    -webkit-backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center;
+    z-index:200;
+  }
+  .modal-overlay.hidden{display:none;}
+  .modal-box{
+    width:min(700px, 90vw);max-height:85vh;overflow-y:auto;
+    background:#fff;border:1px solid #333;box-shadow:0 16px 50px rgba(0,0,0,0.5);
+  }
+  .modal-titlebar{
+    background:var(--titlebar);color:#fff;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 14px;font-size:13px;
+  }
+  .modal-titlebar .modal-close{cursor:pointer;font-size:15px;line-height:1;padding:2px 6px;}
+  .modal-titlebar .modal-close:hover{background:rgba(255,255,255,0.2);border-radius:2px;}
+  .modal-body{padding:30px 34px;}
+  .modal-body h2{font-size:24px;margin-bottom:20px;color:#1a1a1a;}
+  .modal-body p{font-size:15px;color:#333;line-height:1.7;margin-bottom:16px;}
+  .modal-cta-row{display:flex;justify-content:flex-end;margin-top:10px;}
+  .modal-cta{
+    background:var(--green);color:#fff;border:none;border-radius:3px;
+    padding:11px 22px;font-size:14.5px;font-weight:700;cursor:pointer;
+    display:flex;align-items:center;gap:8px;
+  }
+  .modal-cta:hover{background:#166f45;}
+
+  /* Ana notification bubble */
+  .ana-notification{
+    position:fixed;top:46px;right:20px;
+    background:#12233d;color:#fff;
+    border-radius:8px;padding:12px 16px;
+    display:flex;align-items:center;gap:12px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.35);
+    cursor:pointer;z-index:150;
+    animation:notif-in .3s ease;
+  }
+  .ana-notification.hidden{display:none;}
+  @keyframes notif-in{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+  .ana-avatar{
+    width:40px;height:40px;border-radius:50%;
+    background:linear-gradient(160deg,#e08a5c,#c65f8f);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:16px;color:#fff;flex-shrink:0;
+    position:relative;
+  }
+  .ana-avatar .msg-dot{
+    position:absolute;bottom:-2px;right:-2px;
+    width:14px;height:14px;background:#7c5cff;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid #12233d;
+  }
+  .ana-notification .an-name{font-weight:700;font-size:14.5px;}
+  .ana-notification .an-sub{font-size:12px;color:#b9c3d6;}
+
+  /* Chat panel */
+  .chat-panel{
+    position:fixed;top:34px;right:0;bottom:0;width:360px;max-width:100vw;
+    background:#12233d;color:#fff;
+    box-shadow:-8px 0 30px rgba(0,0,0,0.4);
+    display:flex;flex-direction:column;
+    transform:translateX(100%);transition:transform .3s ease;
+    z-index:160;
+  }
+  .chat-panel.open{transform:translateX(0);}
+  .chat-header{
+    display:flex;align-items:center;gap:12px;
+    padding:16px 18px;border-bottom:1px solid rgba(255,255,255,0.1);
+    flex-shrink:0;
+  }
+  .chat-header .ch-name{font-weight:700;font-size:16px;}
+  .chat-close{margin-left:auto;cursor:pointer;font-size:18px;color:#b9c3d6;}
+  .chat-close:hover{color:#fff;}
+  .chat-messages{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px;}
+  .chat-bubble{
+    background:#fff;color:#1a1a1a;border-radius:12px;
+    padding:12px 14px;font-size:14px;line-height:1.5;
+    max-width:88%;align-self:flex-start;
+    animation:bubble-in .25s ease;
+  }
+  @keyframes bubble-in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .typing-indicator{
+    background:#fff;border-radius:12px;padding:12px 16px;
+    align-self:flex-start;display:flex;gap:4px;
+  }
+  .typing-indicator span{
+    width:7px;height:7px;border-radius:50%;background:#9b6bd6;
+    animation:typing-bounce 1s infinite ease-in-out;
+  }
+  .typing-indicator span:nth-child(2){animation-delay:.15s;}
+  .typing-indicator span:nth-child(3){animation-delay:.3s;}
+  @keyframes typing-bounce{0%,60%,100%{transform:translateY(0);opacity:.5;}30%{transform:translateY(-4px);opacity:1;}}
+  .chat-input-row{
+    display:flex;align-items:center;gap:8px;
+    padding:14px;border-top:1px solid rgba(255,255,255,0.1);flex-shrink:0;
+  }
+  .chat-input-row textarea{
+    flex:1;resize:none;border:none;border-radius:20px;
+    padding:10px 16px;font-size:13.5px;font-family:var(--sans);
+    background:#1c355c;color:#fff;min-height:20px;max-height:80px;
+  }
+  .chat-input-row textarea::placeholder{color:#8394b3;}
+  .chat-input-row textarea:focus{outline:none;background:#234070;}
+  .chat-send-btn{
+    width:36px;height:36px;border-radius:50%;border:none;
+    background:#7c5cff;color:#fff;cursor:pointer;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .chat-send-btn:hover{background:#6a4be0;}
+  .chat-cta-row{padding:14px 18px;border-top:1px solid rgba(255,255,255,0.1);flex-shrink:0;}
+  .chat-cta-row button{
+    width:100%;padding:11px 0;background:var(--green);color:#fff;
+    border:none;border-radius:20px;font-size:14px;font-weight:700;cursor:pointer;
+  }
+  .chat-cta-row button:hover{background:#166f45;}
+
+  /* Floating schema reference */
+  .schema-floater{
+    position:fixed;z-index:250;
+    width:260px;
+    background:#1c1c1f;color:#e0e0e0;
+    border:1px solid #333;border-radius:6px;
+    padding:12px 14px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.4);
+    font-family:var(--mono);
+    opacity:0;transform:translateY(4px);
+    transition:opacity .15s ease, transform .15s ease;
+    pointer-events:none;
+  }
+  .schema-floater.show{opacity:1;transform:translateY(0);}
+  .schema-floater .sf-title{
+    font-size:10.5px;text-transform:uppercase;letter-spacing:1px;
+    color:#888;margin-bottom:8px;font-family:var(--sans);
+  }
+  .schema-floater .sf-table{margin-bottom:10px;}
+  .schema-floater .sf-table:last-child{margin-bottom:0;}
+  .schema-floater .sf-tname{color:var(--red);font-weight:700;font-size:12px;margin-bottom:2px;}
+  .schema-floater .sf-cols{font-size:11px;color:#bbb;line-height:1.5;}
+
+  /* Email notification + viewer */
+  .email-notification{
+    position:fixed;top:46px;right:20px;
+    background:#12233d;color:#fff;
+    border-radius:8px;padding:12px 16px;
+    display:flex;align-items:center;gap:12px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.35);
+    cursor:pointer;z-index:150;
+    animation:notif-in .3s ease;
+  }
+  .email-notification.hidden{display:none;}
+  .email-avatar{
+    width:40px;height:40px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:16px;color:#fff;flex-shrink:0;
+  }
+  .email-avatar.avatar-ana{background:linear-gradient(160deg,#e08a5c,#c65f8f);}
+  .email-avatar.avatar-cal{background:linear-gradient(160deg,#3a6fd8,#2b4fa8);}
+  .email-notification .en-name{font-weight:700;font-size:14.5px;}
+  .email-notification .en-sub{font-size:12px;color:#b9c3d6;}
+
+  .email-viewer-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.45);
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center;
+    z-index:200;
+  }
+  .email-viewer-overlay.hidden{display:none;}
+  .email-viewer-box{
+    width:min(560px, 90vw);max-height:85vh;overflow-y:auto;
+    background:#fff;border:1px solid #333;box-shadow:0 16px 50px rgba(0,0,0,0.5);
+    border-radius:4px;
+  }
+  .ev-titlebar{
+    background:#1c1c1f;color:#fff;padding:8px 14px;font-size:12.5px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .ev-titlebar .ev-close{cursor:pointer;font-size:15px;}
+  .ev-titlebar .ev-close:hover{opacity:0.7;}
+  .ev-body{padding:26px 30px;}
+  .ev-subject{font-size:19px;font-weight:700;margin-bottom:16px;color:#1a1a1a;}
+  .ev-meta{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #eee;}
+  .ev-meta-text{font-size:13px;color:#444;line-height:1.5;}
+  .ev-meta-text b{color:#111;}
+  .ev-para{font-size:14.5px;color:#222;line-height:1.7;margin-bottom:14px;}
+  .ev-cta-row{display:flex;justify-content:flex-end;margin-top:20px;}
+  .ev-cta-btn{
+    background:#3a9b6e;color:#fff;border:none;border-radius:20px;
+    padding:10px 22px;font-size:14px;font-weight:700;cursor:pointer;
+  }
+  .ev-cta-btn:hover{background:#2f7d59;}
+
+  /* Solution link + popup */
+  .solution-link{
+    display:inline-block;margin-top:14px;font-size:12px;
+    color:#888;cursor:pointer;text-decoration:underline;
+    background:none;border:none;font-family:var(--sans);
+  }
+  .solution-link:hover{color:#555;}
+
+  .solution-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.5);
+    backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+    display:flex;align-items:center;justify-content:center;
+    z-index:220;
+  }
+  .solution-overlay.hidden{display:none;}
+  .solution-box{
+    width:min(560px, 90vw);background:#1c1c1f;color:#e0e0e0;
+    border:1px solid #333;border-radius:6px;box-shadow:0 16px 50px rgba(0,0,0,0.5);
+    padding:22px 26px;
+  }
+  .solution-box .sol-title{
+    font-size:12px;text-transform:uppercase;letter-spacing:1px;
+    color:#888;margin-bottom:4px;
+  }
+  .solution-box .sol-note{
+    font-size:12px;color:#e08a5c;margin-bottom:14px;
+  }
+  .solution-box pre{
+    background:#0a0e13;border:1px solid #333;border-radius:4px;
+    padding:14px 16px;font-family:var(--mono);font-size:13.5px;color:#c9d6e3;
+    white-space:pre-wrap;word-break:break-word;
+    user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;
+  }
+  .solution-close-row{display:flex;justify-content:flex-end;margin-top:16px;}
+  .solution-close-btn{
+    background:#2a2a30;color:#e0e0e0;border:1px solid #3a3a42;
+    border-radius:4px;padding:8px 18px;font-size:13px;cursor:pointer;
+  }
+  .solution-close-btn:hover{background:#34343c;}
+.fade-overlay{
+  position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;
+  transition:opacity .8s ease;z-index:1000;
+}
+.fade-overlay.active{opacity:1;pointer-events:all;}
+#logoutIcon{cursor:pointer;}
+#logoutIcon:hover{color:#fff;}
+</style>
+</head>
+<body>
+<div class="fade-overlay" id="fadeOverlay"></div>
+
+<div class="system-bar">
+  <div class="sb-left">
+    <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+      <ellipse cx="12" cy="5" rx="8" ry="3"></ellipse>
+      <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"></path>
+      <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"></path>
+    </svg>
+    //ProdEnv
+    <span class="sb-divider">|</span>
+    <span id="sbUserName"></span>
+  </div>
+  <div class="sb-center" id="sysClock">Loading…</div>
+  <div class="sb-right" style="position:relative;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+      <path d="M2 8.5a15 15 0 0 1 20 0"></path>
+      <path d="M5 12a10.5 10.5 0 0 1 14 0"></path>
+      <path d="M8.5 15.5a6 6 0 0 1 7 0"></path>
+      <circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"></circle>
+    </svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+      <polygon points="3,9 8,9 13,4 13,20 8,15 3,15" fill="currentColor" stroke="none"></polygon>
+      <path d="M16.5 8.5a5 5 0 0 1 0 7"></path>
+      <path d="M19 6a9 9 0 0 1 0 12"></path>
+    </svg>
+    <svg id="logoutIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+      <polyline points="16,17 21,12 16,7"></polyline>
+      <line x1="21" y1="12" x2="9" y2="12"></line>
+    </svg>
+    <svg id="adminToggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="display:none;">
+      <path d="M12 2v8"></path>
+      <path d="M6.3 6.3a9 9 0 1 0 11.4 0"></path>
+    </svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">
+      <polyline points="6,9 12,15 18,9"></polyline>
+    </svg>
+
+    <div class="admin-panel hidden" id="adminPanel">
+      <div class="admin-panel-title">Dev Tools</div>
+      <button data-action="complete-part1">Complete Writing Queries — Part 1</button>
+      <button data-action="complete-skillcheck1">Complete Skill Check 1</button>
+      <button data-action="unlock-skillcheck1">Unlock Skill Check 1 (no notif)</button>
+      <button data-action="complete-part2">Complete Writing Queries — Part 2</button>
+      <button data-action="complete-part3">Complete Writing Queries — Part 3</button>
+      <button data-action="complete-skillcheck2">Complete Skill Check 2</button>
+      <button data-action="replay-onboarding">Replay Ana's Onboarding</button>
+      <div class="admin-panel-divider"></div>
+      <button data-action="reset-all" class="admin-danger">Reset All Progress</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p>Initializing workstation database…</p>
+</div>
+
+<div class="window" id="app" style="display:none;">
+  <div class="titlebar">
+    <span>QueryOps</span>
+    <div class="controls"><span>—</span><span>▢</span><span>×</span></div>
+  </div>
+  <div class="menubar"><span>Home</span><span>Settings</span><span>Help</span></div>
+  <div class="progress-row">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-pct" id="progressPct">0%</div>
+  </div>
+
+  <div class="body-row">
+    <div class="sidebar">
+      <div class="sidebar-tab">Training <span class="close">×</span></div>
+      <div class="nav-item" data-lesson="what-is-sql" id="nav-what-is-sql">What is SQL?</div>
+      <div class="nav-item" data-lesson="writing-1" id="nav-writing-1">Writing Queries - Part 1</div>
+      <div class="nav-item locked" id="nav-skill-check-1">Skill Check 1</div>
+      <div class="nav-item locked" id="nav-writing-2">Writing Queries - Part 2</div>
+      <div class="nav-item locked" id="nav-writing-3">Writing Queries - Part 3</div>
+      <div class="nav-item locked" id="nav-skill-check-2">Skill Check 2</div>
+      <div class="nav-item locked">Subqueries</div>
+      <div class="nav-item locked">Correlated Subqueries</div>
+      <div class="nav-item locked">Final Skill Check</div>
+    </div>
+
+    <div class="content-pane" id="contentPane"><!-- injected by JS --></div>
+  </div>
+
+  <div class="statusbar">
+    <span>QueryOps Training Environment v1.0</span>
+    <span id="statusRight">Status: Ready</span>
+  </div>
+</div>
+
+<div class="ana-notification hidden" id="anaNotification">
+  <div class="ana-avatar">A<span class="msg-dot"></span></div>
+  <div>
+    <div class="an-name">Ana</div>
+    <div class="an-sub">New Message</div>
+  </div>
+</div>
+
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <div class="ana-avatar">A</div>
+    <div class="ch-name">Ana</div>
+    <span class="chat-close" id="chatCloseBtn">×</span>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-row" id="chatInputRow" style="display:none;">
+    <textarea id="chatInputBox" rows="1" placeholder="Type a reply..."></textarea>
+    <button class="chat-send-btn" id="chatSendBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+        <polyline points="9,6 15,12 9,18"></polyline>
+      </svg>
+    </button>
+  </div>
+  <div class="chat-cta-row" id="chatCtaRow" style="display:none;">
+    <button id="chatCtaBtn">Got it</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="introModal">
+  <div class="modal-box">
+    <div class="modal-titlebar">
+      <span>//ProdEnv - QueryOps</span>
+      <span class="modal-close" id="modalCloseBtn">×</span>
+    </div>
+    <div class="modal-body">
+      <h2>Introduction</h2>
+      <p>You recently started a job at the fastest-growing e-commerce site in the country, QOast. What started a few years ago as a streamlined regional marketplace has absolutely exploded into a retail juggernaut, completely disrupting the traditional supply chain. QOast's trademark 'Shore-to-Door' lightning-fast shipping network is now handling millions of transactions a day.</p>
+      <p>The massive influx of orders, shifting vendor inventories, and non-stop customer growth have threatened to overwhelm the existing infrastructure. To prevent a total system bottleneck, QOast has built a new, elite team of data analysts to come in and assist with reading and leveraging this tidal wave of data effectively.</p>
+      <p>Your job specifically is Marketplace &amp; Fulfillment Optimization. You are the bridge between the digital shopping carts and the massive, automated fulfillment centers scattered across the country. If a product stalls in a warehouse, if a regional delivery window slips, or if a high-value customer tier experiences checkout friction, it's up to your SQL terminal to spot the trend and surface the solution before the daily numbers dip.</p>
+      <div class="modal-cta-row">
+        <button class="modal-cta" id="modalStartBtn">Let's get started! →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let db, SQL;
+
+const CREATE_SQL = `
+CREATE TABLE Customers (
+  customer_id INTEGER PRIMARY KEY,
+  first_name TEXT, last_name TEXT, email TEXT,
+  city TEXT, state TEXT, signup_date TEXT,
+  lifetime_spend REAL, customer_tier TEXT
+);
+CREATE TABLE Products (
+  product_id INTEGER PRIMARY KEY,
+  product_name TEXT, category TEXT, unit_price REAL, stock_quantity INTEGER
+);
+CREATE TABLE Orders (
+  order_id INTEGER PRIMARY KEY,
+  customer_id INTEGER, order_date TEXT, order_time TEXT,
+  status TEXT, carrier TEXT, tracking_number TEXT,
+  shipping_address TEXT, total REAL
+);
+CREATE TABLE Order_Items (
+  item_id INTEGER PRIMARY KEY,
+  order_id INTEGER, product_id INTEGER, quantity INTEGER, unit_price REAL
+);`;
+
+const SEED_SQL = `
+INSERT INTO Customers (customer_id, first_name, last_name, email, city, state, signup_date, lifetime_spend, customer_tier) VALUES
+(2,'Priya','Chandran','priya.chandran@gmail.com','Seattle','WA','2020-06-22',8420.00,'Platinum'),
+(4,'Elena','Vasquez','elena.vasquez@outlook.com','Denver','CO','2021-01-15',6790.75,'Gold'),
+(11,'John','Meyer','john.meyer@gmail.com','Chicago','IL','2003-05-19',1520.00,'Silver'),
+(12,'Joan','Petrov','joan.petrov@yahoo.com','Houston','TX','2004-11-30',2200.00,'Gold'),
+(13,'Jonas','Whitfield','jonas.whitfield@gmail.com','Dallas','TX','2017-08-04',3100.00,'Gold'),
+(14,'John','Alvarez','john.alvarez@aol.com','Tucson','AZ','2002-02-14',890.00,'Bronze'),
+(15,'Maya','Simmons','maya.simmons@gmail.com','New York','NY','2019-09-09',5230.00,'Platinum'),
+(16,'Owen','Blackwood','owen.blackwood@yahoo.com','Newark','NJ','2020-03-03',670.00,'Bronze'),
+(18,'Derek','Holt','derek.holt@yahoo.com','Boston','MA','2016-01-22',3320.00,'Silver'),
+(19,'Anya','Petersson','anya.petersson@gmail.com','Minneapolis','MN','2018-07-07',6120.00,'Gold'),
+(20,'Marcus','Bellweather','marcus.bellweather@yahoo.com','Austin','TX','2019-03-14',1240.50,'Silver'),
+(21,'Trevor','Bowman','trevor.bowman@yahoo.com','Phoenix','AZ','2020-09-08',2150.00,'Silver'),
+(22,'Nadia','Okafor','nadia.okafor@gmail.com','Portland','OR','2022-02-19',9875.40,'Platinum'),
+(23,'Lucia','Ramirez','lucia.ramirez@yahoo.com','Dallas','TX','2021-06-17',4890.00,'Gold'),
+(24,'Renee','Foster','renee.foster@icloud.com','Boise','ID','2018-04-25',980.00,'Silver');
+`;
+
+const SEED_SQL_2 = `
+INSERT INTO Products (product_id, product_name, category, unit_price, stock_quantity) VALUES
+(1,'Wireless Mouse','Electronics',24.99,120),
+(2,'Bluetooth Speaker','Electronics',49.99,80),
+(3,'Laptop Stand','Electronics',35.00,60),
+(4,'Coffee Maker','Home',59.99,40),
+(5,'Throw Blanket','Home',29.99,100),
+(6,'Desk Lamp','Home',22.50,75),
+(7,'Running Shoes','Apparel',89.99,50),
+(8,'Denim Jacket','Apparel',65.00,30),
+(9,'Wool Socks','Apparel',12.99,200),
+(10,'Almond Butter','Grocery',8.99,150),
+(11,'Organic Coffee','Grocery',14.99,90),
+(12,'Granola Bars','Grocery',6.49,300),
+(13,'Building Blocks','Toys',34.99,45),
+(14,'Puzzle 1000pc','Toys',18.99,70),
+(15,'Remote Car','Toys',44.99,25);
+
+INSERT INTO Orders (order_id, customer_id, order_date, order_time, status, carrier, tracking_number, shipping_address, total) VALUES
+(1,2,'2024-01-05','14:30:00','Delivered','UPS','1Z999AA1','123 Pine St, Seattle, WA',84.98),
+(2,2,'2024-03-12','09:15:00','Delivered','FedEx','FX1002','123 Pine St, Seattle, WA',59.99),
+(3,4,'2024-02-20','16:45:00','Delivered','UPS','1Z999AA2','88 Oak Ave, Denver, CO',89.99),
+(4,11,'2024-01-18','11:00:00','Cancelled','USPS','US1003','200 Lake Rd, Chicago, IL',38.97),
+(5,12,'2024-04-02','13:20:00','Delivered','FedEx','FX1004','77 Elm St, Houston, TX',22.50),
+(6,13,'2024-03-08','10:05:00','Shipped','UPS','1Z999AA3','15 Birch Ln, Dallas, TX',65.00),
+(7,15,'2024-02-14','08:40:00','Delivered','USPS','US1005','300 Maple Dr, New York, NY',49.99),
+(8,15,'2024-05-01','17:10:00','Delivered','UPS','1Z999AA4','300 Maple Dr, New York, NY',29.99),
+(9,18,'2024-01-29','12:25:00','Delivered','FedEx','FX1006','9 Cedar Ct, Boston, MA',115.97),
+(10,19,'2024-04-15','15:50:00','Delivered','UPS','1Z999AA5','44 Spruce Way, Minneapolis, MN',20.97),
+(11,20,'2024-02-02','09:30:00','Delivered','USPS','US1007','5 Willow St, Austin, TX',8.99),
+(12,21,'2024-03-22','14:00:00','Shipped','FedEx','FX1008','12 Aspen Rd, Phoenix, AZ',89.99),
+(13,22,'2024-01-11','10:45:00','Delivered','UPS','1Z999AA6','60 Palm Ave, Portland, OR',35.00),
+(14,23,'2024-04-28','16:15:00','Delivered','USPS','US1009','21 Fir St, Dallas, TX',12.99),
+(15,2,'2024-06-10','11:05:00','Delivered','FedEx','FX1010','123 Pine St, Seattle, WA',249.95),
+(16,4,'2024-05-19','13:40:00','Processing',NULL,NULL,'88 Oak Ave, Denver, CO',45.00),
+(17,24,'2024-03-01','10:00:00','Delivered','DHL','DHL2001','21 Fir St, Boise, ID',18.50);
+
+INSERT INTO Order_Items (item_id, order_id, product_id, quantity, unit_price) VALUES
+(1,1,1,2,24.99),
+(2,1,3,1,35.00),
+(3,2,4,1,59.99),
+(4,3,7,1,89.99),
+(5,4,9,3,12.99),
+(6,5,6,1,22.50),
+(7,6,8,1,65.00),
+(8,7,2,1,49.99),
+(9,8,5,1,29.99),
+(10,9,7,1,89.99),
+(11,9,9,2,12.99),
+(12,10,12,2,6.49),
+(13,10,11,1,14.99),
+(14,11,10,1,8.99),
+(15,12,7,1,89.99),
+(16,13,3,1,35.00),
+(17,14,9,1,12.99),
+(18,15,2,5,49.99);
+`;
+
+const WHAT_IS_SQL_HTML = `
+  <h2>What is SQL?</h2>
+  <p>Data is ubiquitous, and the need to be able to use and act on that data has become more important than ever before. Companies are hiring data analysts at an increasing rate to be able to access that data and process it into usable products. Operations Research Analyst, the role this course most closely aligns with, is expected to grow 21% from 2024–34, #9 out of ALL careers in the United States. Additionally, with an average salary of $91,290, data professionals earn nearly 50% more than the US average of $66,622 (2026)!</p>
+  <p>So, what exactly is SQL? SQL stands for Structured Query Language, and it is one of the most powerful and widely used tools for accessing data. Using a query, you can extract the specific data you need. For example, let's say you're trying to find the average amount of money that a customer spends during the evening, you could write something like this to pull exactly that data:</p>
+  <pre class="snippet"><span class="kw">SELECT</span> <span class="fn">AVG</span>(total) <span class="kw">AS</span> avg_evening_spend
+<span class="kw">FROM</span> orders
+<span class="kw">WHERE</span> <span class="fn">CAST</span>(order_time <span class="kw">AS</span> TIME) &gt;= <span class="str">'18:00:00'</span></pre>
+  <p>Let's break that down:</p>
+  <p>1. <b>FROM orders</b>: that's where our data lives.<br>
+  2. <b>SELECT AVG(total)</b>: we're grabbing the order totals and averaging them. The alias (avg_evening_spend) just gives the result a readable name instead of AVG(total) as the column name.<br>
+  3. <b>WHERE CAST(order_time AS TIME) &gt;= '18:00:00'</b>: this filters for evening orders, which are orders placed after 6 PM in this example. CAST strips out the date so we're only comparing the time portion.</p>
+
+  <h3>Query Construction</h3>
+  <p>We just made a very simple SQL query! While you'll often be tasked with some far more complex requests in the future (don't worry, we'll get to those!), your day-to-day pulls for reporting or one-off requests will look very similar to that. Before we move into how to properly construct a query, let's break one down and discuss what each part means. Don't worry, we'll go into far more detail for each specific throughout this course!</p>
+  <pre class="snippet"><span class="kw">/* This query is filtering for high-value customers, and
+cities where there are more than 5 of them */</span>
+<span class="kw">SELECT</span> city, <span class="fn">COUNT</span>(customer_id) <span class="kw">AS</span> high_value_customer_count
+<span class="kw">FROM</span> customers
+<span class="kw">WHERE</span> lifetime_spend &gt; 150
+<span class="kw">GROUP BY</span> city
+<span class="kw">HAVING</span> <span class="fn">COUNT</span>(customer_id) &gt; 5
+<span class="kw">ORDER BY</span> high_value_customer_count <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> 10;</pre>
+
+  <p><b>1. SELECT</b><br>
+  SELECT is the first part of a query that you'll enter. This is specifically saying "I want the data from these columns." In this example, we're requesting the city and the total number of qualifying customers in our system. We also added an alias (AS) called high_value_customer_count to make the results more readable.</p>
+
+  <p><b>2. FROM</b><br>
+  At work, you'll have more than one table (and potentially hundreds or more of them!), so this is where we tell SQL where to get our data from. In this example, we requested the data from the customers table.</p>
+
+  <p><b>3. WHERE</b><br>
+  When we only want specific data, we can use filters in WHERE to help narrow down our results using operators (&lt;, &lt;=, &gt;, &gt;=, =, etc.). Here, we only want the customers who have spent more than $150 returned.</p>
+
+  <p><b>4. GROUP BY</b><br>
+  In the SELECT statement, we asked for the city and the COUNT of customer_id. There will be a lot of cities in the city column, and inevitably, some of those will be the same. In order to get the most accurate (and legible!) count, we GROUP BY the city, so cities that are the same are grouped together, and counted together, instead of multiple "Seattle, WA" with a count of 1.</p>
+
+  <p><b>5. HAVING</b><br>
+  Like the WHERE statement, HAVING is a filter. Where HAVING is different is that it is only used for aggregated data, or, multiple pieces of data that are combined. Because that data is combined, we can't use WHERE to filter it. In this example, HAVING is filtering for cities that have more than 5 high-value customers.</p>
+
+  <p><b>6. ORDER BY</b><br>
+  When your data is pulled, the order isn't guaranteed, which isn't very readable or actionable! ORDER BY allows you to dictate by which columns you'd like to arrange your data. ORDER BY defaults to ascending (ASC) [a to z or 0 to 9], but you can reverse the order by using DESC for descending. In this example, we're ordering by the count of high value customers in descending order (the top spenders first).</p>
+
+  <p><b>7. LIMIT</b><br>
+  There can often be tens of thousands of rows of data in a table, and pulling all of it can take a lot of time and resources. LIMIT allows you to tell the query how many rows of data you want returned.</p>
+
+  <p><b>8. ;</b><br>
+  Finally, there is the semi-colon. While it is unnecessary to use a semi-colon for single queries, if you have more than one, you must put a semi-colon after your query, or SQL will give you an error. It's good best practice to add them to the end of queries, even if you're only using one.</p>
+
+  <h3>Readability, Spacing, Capitalization, and Best Practices</h3>
+  <p>SQL, in comparison to other languages, is very flexible when it comes to spacing and capitalization. While this makes creating queries far easier, it does create potential challenges when others (or even yourself in the future) try to read your queries.</p>
+  <p>So, to make your queries as consistent and readable as possible, try to follow these best practices:</p>
+
+  <p><b>1. Capitalize your functions!</b><br>
+  It is far easier to read queries when the functions are capitalized. With simple queries, it may not seem as important, but once your queries become more complex and crowded (like with subqueries and JOINs), capitalization goes a long way in making your queries easier to read and work with.</p>
+
+  <p><b>2. Place spaces as frequently as necessary for readability!</b><br>
+  Fun fact: <code>SELECT''AS_</code> will run without issue in your query. However, reading it is a nightmare (it's just a column named _ with nothing in it). While the database is smart enough to read code where spaces are missing next to symbols and functions, humans are not. Use spaces and commas as tools for human readability, not just database syntax.</p>
+
+  <p><b>3. Use semi-colons at the end of your queries!</b><br>
+  Like we mentioned before, in single queries, not using a semi-colon causes no issues. However, as you begin creating multiple queries, they MUST be separated by semi-colons, or you will get errors. By getting into the habit of using semi-colons after every query, you will avoid issues down the line.</p>
+
+  <p><b>4. Use /* comments */ for explanations.</b><br>
+  While it's often easy for coworkers to swing by your desk and ask why you chose to use a JOIN where it wasn't needed, what if you're sick that day, or no longer working for that company? What if the person looking at your code isn't trained in SQL and doesn't understand what the query you created is even doing? Leaving comments /* */ in your code will not only make it simpler for you to remember why you made the choice you made; it'll also make it easier for anyone else after you. Just a note: comments can be placed anywhere necessary to make the code more readable. You can add them to the beginning to explain the query, in-line to explain what the previous or subsequent line is doing, or even at the bottom to let someone know what results to expect. Comments are a powerful tool that you should try to use as often as possible!</p>
+
+  <p>This list is certainly not all-inclusive, but it's a great starting point to develop good habits moving forward. Also, your company or team may have specific best practices, like preferred syntax for aliases or query format, but those are easier to implement when you're already creating readable queries.</p>
+
+  <h3>Our Reference Document</h3>
+  <p>One of the most important things to remember when learning SQL is that you aren't just learning a tool to create queries with, you're learning a new language. One of the most confusing parts of creating queries is taking the request you're given and knowing which functions to use based on that request. We created a reference document specifically to show which functions to use based on the kinds of requests you'll receive. It's not all-inclusive, and you'll likely find your own tips and tricks to use for yourself, but while you're starting, it can be a helpful tool to break down those requests by keywords and give you an idea of where to start in creating your query.</p>
+  <p>You can find the full reference document here: <a href="assets/SQL_Quick_Reference.pdf" target="_blank" rel="noopener">SQL Quick Reference Guide</a></p>
+  <p>It's only 1, double-sided page, so printing it and keeping it at your desk won't take up too much space. You can also find the reference sheet as a collapsible column on the right side of the screen in your training and the practice sets.</p>
+
+  <div style="margin-top:30px;">
+    <button class="continue-btn ready" onclick="loadLesson('writing-1')">Continue to Writing Queries — Part 1 →</button>
+  </div>
+`;
+
+function buildExercisesBandHTML(bandId, title, showSolution){
+  if (showSolution === undefined) showSolution = true;
+  return `
+  <h3>${title}</h3>
+  <div class="workbench">
+    <div class="workbench-header">Table: Customers</div>
+    <div class="workbench-body">
+      <div class="task-list">
+        <ol id="taskList-${bandId}"></ol>
+        ${showSolution ? `<button class="solution-link" data-solution-band="${bandId}">Stuck? Check the Solution.</button>` : ''}
+      </div>
+      <div class="workbench-right">
+        <div class="table-frame-wrap">
+          <div class="table-frame" id="tableFrame-${bandId}"></div>
+          <div class="error-banner" id="errorBanner-${bandId}" style="display:none;"></div>
+        </div>
+        <textarea class="query-box" id="queryBox-${bandId}" placeholder="Write your query here..." spellcheck="false"></textarea>
+      </div>
+    </div>
+    <div class="workbench-footer">
+      <button class="reset-link" data-band="${bandId}">Reset</button>
+      <button class="continue-btn" id="continueBtn-${bandId}" disabled>Continue</button>
+    </div>
+  </div>`;
+}
+
+function buildWritingQueries1HTML(){
+  return `
+  <h2>Writing Queries — Part 1</h2>
+
+  <h3>SELECT statements</h3>
+  <p>As mentioned in the query construction section, SELECT statements are the first part of a query that you'll enter. They are literally telling the database "I want the data from these columns."</p>
+  <p>The structure of a SELECT statement is easy. After SELECT, you simply type the name of the column you want the data from. With multiple columns, you separate the names with commas. This is also where you'll create aliases using AS, but we'll go into more depth on that topic when we discuss aggregates.</p>
+  <p>The other important part of queries is where you want your data to come from. We use FROM and the table name to tell the database which table to use.</p>
+  <p>One thing we haven't discussed yet is the asterisk (<code>*</code>). The asterisk means that you want to pull all columns, and all rows from the table you specify. This can potentially be hundreds of thousands to millions of rows of data, so we usually use filters to make our queries more specific while also pulling the data we actually need.</p>
+  <p>So: <b>SELECT</b> — what columns do I want my data from? (<code>*</code> pulls all data from all columns) <b>FROM</b> — what table do I want to pull that data from?</p>
+  <div class="schema-ref">
+    <div class="tname">Customers</div>
+    <div class="cols">customer_id, first_name, last_name, email, city, state, signup_date, lifetime_spend, customer_tier</div>
+  </div>
+  ${buildExercisesBandHTML(0, 'Exercises')}
+
+  <h3>WHERE statements</h3>
+  <p>SELECT statements are only so useful on their own. Adding filters enables you to pull significantly more specific data. Instead of getting every row from a column, we can narrow it down to only the data we need.</p>
+  <p>For example, SELECT * selects all columns and rows, which can be overwhelming and is generally not very useful. However, by telling the database that we want all columns and the rows where a customer's first name is John will get only the data we need.</p>
+  <p><b>Quick note on quotes:</b> text values need to be wrapped in single quotes, like <code>'John'</code> or <code>'Seattle'</code>, so the database knows you're comparing against a string rather than a column name. Numbers don't need quotes — <code>lifetime_spend &gt; 1000</code> is correct, but <code>customer_id = '18'</code> would also work since SQLite is fairly forgiving about it. Getting in the habit of quoting text and leaving numbers unquoted now will save you confusion once you're working with stricter databases.</p>
+  <p>To perform these filters, we use operators. These are the basic operators:</p>
+  <table class="ref">
+    <tr><th>Operator</th><th>Meaning</th><th>Example</th></tr>
+    <tr><td><code>=, !=, &lt;, &lt;=, &gt;, &gt;=</code></td><td>Standard numerical operators</td><td><code>col_name != 4</code></td></tr>
+    <tr><td><code>BETWEEN ... AND ...</code></td><td>data is within range of two values (inclusive)</td><td><code>col_name BETWEEN 10 AND 100</code></td></tr>
+    <tr><td><code>NOT BETWEEN ... AND ...</code></td><td>Data is not within range of two values (inclusive)</td><td><code>col_name NOT BETWEEN 1 AND 10</code></td></tr>
+    <tr><td><code>IN (...)</code></td><td>data exists in a list</td><td><code>col_name IN (2, 4, 6)</code></td></tr>
+    <tr><td><code>NOT IN (...)</code></td><td>data does not exist in a list</td><td><code>col_name NOT IN (1, 3, 5)</code></td></tr>
+  </table>
+  <p><i>Note: When used with text, =, !=, &lt;, &lt;=, &gt;, &gt;= are case-sensitive. 'A' and 'a' would return different results. Don't worry, we'll cover more flexible text filters in the next section.</i></p>
+  <p>You can also combine multiple conditions together using AND and OR. AND requires both conditions to be true, while OR requires at least one. So, <code>WHERE city = 'Seattle' AND lifetime_spend &gt; 500</code> would only return Seattle customers who have spent more than $500, while OR would return Seattle customers plus anyone else who spent over $500, regardless of city.</p>
+  ${buildExercisesBandHTML(1, 'Exercises')}
+
+  <h3>WHERE — Part 2</h3>
+  <p>There are a few more elements we can use in WHERE to make our queries more flexible. These are especially useful when data doesn't perfectly match, like 'Open' vs. 'open'. While they mean the same thing in the database, when querying for it, you may miss one or the other.</p>
+  <p>That is why we have these operators to help account for that:</p>
+  <table class="ref">
+    <tr><th>Operator</th><th>Meaning</th><th>Example</th></tr>
+    <tr><td><code>LIKE</code></td><td>Pattern-based string comparison</td><td><code>col_name LIKE "ABC"</code></td></tr>
+    <tr><td><code>NOT LIKE</code></td><td>Pattern-based string inequality comparison</td><td><code>col_name NOT LIKE "ABCD"</code></td></tr>
+    <tr><td><code>%</code></td><td>Used anywhere in a string to match a sequence of zero or more characters (only with LIKE or NOT LIKE)</td><td><code>col_name LIKE "%AT%"</code> (matches "AT", "ATTIC", "CAT" or even "BATS")</td></tr>
+    <tr><td><code>_</code></td><td>Used anywhere in a string to match a single character (only with LIKE or NOT LIKE)</td><td><code>col_name LIKE "AN_"</code> (matches "AND", but not "AN")</td></tr>
+  </table>
+  <p>% and _ are called "wildcards." Depending on where the % and _ are placed, the database will include anything that meets that request.</p>
+  <p>If we only want to find customers who have aol emails (people still have those?), we can use the wildcard % to search for anything before the domain, like this: <code>WHERE email LIKE '%@aol.com'</code>.</p>
+  <p>_ works similarly, except it only includes data where the underscore is placed, so <code>WHERE first_name LIKE 'JO_'</code> would include names like Joe, Jon, and Joy, it would exclude names like Joey, Joyce, and John.</p>
+  <p><i>One more note: depending on the relational database engine you're using, some syntax might work differently. Our site uses SQLite, so it treats LIKE and NOT LIKE as case-insensitive for standard characters. However, PostgreSQL is case-sensitive by default.</i></p>
+  ${buildExercisesBandHTML(2, 'Exercises')}
+
+  <h3>Filtering and Sorting Queries</h3>
+  <p>While every entry in the database is unique, the results of a query may not be. For example, in our customers table, there could be hundreds of customers who are in New York City. Fortunately, SQL gave an easy way to remove rows that are duplicated with the DISTINCT keyword. We use DISTINCT like this:</p>
+  <pre class="snippet"><span class="kw">SELECT DISTINCT</span> first_name, last_name, city
+<span class="kw">FROM</span> customers;</pre>
+  <p>As mentioned in the query construction section, without anything telling it how to order the results of a query, the order isn't guaranteed, which makes its use for analysis less useful. We can address that by using the ORDER BY clause. ORDER BY is ASC by default but can be changed to descending simply by placing DESC after the column name.</p>
+  <pre class="snippet"><span class="kw">SELECT DISTINCT</span> first_name, last_name, city
+<span class="kw">FROM</span> customers
+<span class="kw">WHERE</span> city = <span class="str">'Seattle'</span> <span class="kw">OR</span> city = <span class="str">'Denver'</span>
+<span class="kw">ORDER BY</span> last_name <span class="kw">DESC</span>;</pre>
+  <p>We can further refine our ORDER BY (or really, any results at all) by using LIMIT and OFFSET. LIMIT is used to display only the number of rows you specify, for example, LIMIT 5 will only return 5 rows of data. OFFSET works by skipping the number of results you specify. For example, you want to ignore the very first result of the data set because it's a test user, you could use OFFSET 1.</p>
+  <p>OFFSET is most used for pagination though. If you wanted to show results 11-20 after already displaying 1-10, you'd use LIMIT 10 OFFSET 10 to skip the first page of results.</p>
+  <p>Let's say we want to find out who the top spenders in Dallas and Tucson are, we can use a combination of the skills we've learned thus far:</p>
+  <pre class="snippet"><span class="kw">SELECT</span> first_name, last_name, city, lifetime_spend
+<span class="kw">FROM</span> customers
+<span class="kw">WHERE</span> city <span class="kw">IN</span> (<span class="str">'Dallas'</span>, <span class="str">'Tucson'</span>)
+<span class="kw">ORDER BY</span> lifetime_spend <span class="kw">DESC</span>;</pre>
+  <p>If you wanted only the top 3 spenders, you could simply use LIMIT 3.</p>
+  ${buildExercisesBandHTML(3, 'Exercises')}
+  `;
+}
+
+const BANDS = [
+  { items: [
+    { prompt: "Find all of the cities where our customers are located.", answer: "SELECT city FROM Customers;" },
+    { prompt: "Find the first_name and last_name for each of our customers.", answer: "SELECT first_name, last_name FROM Customers;" },
+    { prompt: "Find the customer_id and email for each of our customers.", answer: "SELECT customer_id, email FROM Customers;" },
+    { prompt: "Find the customer_id, the signup_date and the lifetime_spend for each of our customers.", answer: "SELECT customer_id, signup_date, lifetime_spend FROM Customers;" },
+    { prompt: "Find all of the information for each of our customers.", answer: "SELECT * FROM Customers;" }
+  ]},
+  { items: [
+    { prompt: "Find all of the information for the customer with the ID of 18.", answer: "SELECT * FROM Customers WHERE customer_id = 18;" },
+    { prompt: "Find all customers who have spent more than 1000.", answer: "SELECT * FROM Customers WHERE lifetime_spend > 1000;" },
+    { prompt: "Find customers whose first name is John.", answer: "SELECT * FROM Customers WHERE first_name = 'John';" },
+    { prompt: "Find customers whose signup_date is between '2000-01-01' and '2005-12-31'.", answer: "SELECT * FROM Customers WHERE signup_date BETWEEN '2000-01-01' AND '2005-12-31';" },
+    { prompt: "Find customers who are not from Seattle, Denver, or Honolulu.", answer: "SELECT * FROM Customers WHERE city NOT IN ('Seattle','Denver','Honolulu');" }
+  ]},
+  { items: [
+    { prompt: 'Find customers whose first name starts with "J".', answer: "SELECT * FROM Customers WHERE first_name LIKE 'J%';" },
+    { prompt: "Find customers whose email is from Gmail.", answer: "SELECT * FROM Customers WHERE email LIKE '%@gmail.com';" },
+    { prompt: 'Find customers whose last name ends in "son".', answer: "SELECT * FROM Customers WHERE last_name LIKE '%son';" },
+    { prompt: "Find customers whose first name is exactly 4 letters long.", answer: "SELECT * FROM Customers WHERE first_name LIKE '____';" },
+    { prompt: 'Find customers whose city does NOT contain "New".', answer: "SELECT * FROM Customers WHERE city NOT LIKE '%New%';" }
+  ]},
+  { items: [
+    { prompt: "Find the top 5 highest spending customers, showing their first name, last name, and lifetime spend.", answer: "SELECT first_name, last_name, lifetime_spend FROM Customers ORDER BY lifetime_spend DESC LIMIT 5;", orderMatters: true },
+    { prompt: "Find all unique cities that our customers are located in, ordered alphabetically.", answer: "SELECT DISTINCT city FROM Customers ORDER BY city ASC;", orderMatters: true },
+    { prompt: "Find the first name, last name, and signup date of customers from Chicago or Houston, ordered by signup date from newest to oldest.", answer: "SELECT first_name, last_name, signup_date FROM Customers WHERE city IN ('Chicago','Houston') ORDER BY signup_date DESC;", orderMatters: true },
+    { prompt: "Find the top 3 spenders whose email is from Yahoo, showing their first name, last name, email, and lifetime spend.", answer: "SELECT first_name, last_name, email, lifetime_spend FROM Customers WHERE email LIKE '%@yahoo.com' ORDER BY lifetime_spend DESC LIMIT 3;", orderMatters: true },
+    { prompt: "Find all unique customer tiers, skipping the first result and limiting to 2 results.", answer: "SELECT DISTINCT customer_tier FROM Customers LIMIT 2 OFFSET 1;", orderMatters: true }
+  ]}
+];
+
+async function initDatabase(){
+  SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` });
+  resetSandbox();
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+}
+
+function resetSandbox(){
+  db = new SQL.Database();
+  db.run(CREATE_SQL);
+  db.run(SEED_SQL);
+  db.run(SEED_SQL_2);
+}
+
+function normalize(result, preserveOrder){
+  if (!result || result.length === 0) return { columns: [], rows: [] };
+  const { columns, values } = result[0];
+  const rows = values.map(r => r.map(v => v === null ? 'NULL' : String(v)));
+  if (!preserveOrder){
+    rows.sort((a,b) => a.join('|').localeCompare(b.join('|')));
+  }
+  return { columns, rows };
+}
+function matches(a, b){
+  if (a.columns.length !== b.columns.length) return false;
+  if (a.rows.length !== b.rows.length) return false;
+  for (let i=0;i<a.rows.length;i++){ if (a.rows[i].join('|') !== b.rows[i].join('|')) return false; }
+  return true;
+}
+function renderTable(frameEl, result){
+  if (!result || result.length === 0){
+    frameEl.innerHTML = '<div class="table-empty">Query ran — 0 rows returned.</div>';
+    return;
+  }
+  const { columns, values } = result[0];
+  let html = '<table class="result-table"><tr>';
+  columns.forEach(c => html += `<th>${c}</th>`);
+  html += '</tr>';
+  values.forEach(row => {
+    html += '<tr>';
+    row.forEach(cell => html += `<td>${cell === null ? 'NULL' : cell}</td>`);
+    html += '</tr>';
+  });
+  html += '</table>';
+  frameEl.innerHTML = html;
+}
+
+const TABLE_SCHEMAS = {
+  Customers: "customer_id, first_name, last_name, email, city, state, signup_date, lifetime_spend, customer_tier",
+  Orders: "order_id, customer_id, order_date, order_time, status, carrier, tracking_number, shipping_address, total",
+  Order_Items: "item_id, order_id, product_id, quantity, unit_price",
+  Products: "product_id, product_name, category, unit_price, stock_quantity"
+};
+
+function showSchemaFloater(anchorEl, tableNames){
+  const floater = document.getElementById('schemaFloater');
+  const names = (tableNames && tableNames.length) ? tableNames : Object.keys(TABLE_SCHEMAS);
+
+  floater.innerHTML = '<div class="sf-title">Table Reference</div>' +
+    names.map(name => `
+      <div class="sf-table">
+        <div class="sf-tname">${name}</div>
+        <div class="sf-cols">${TABLE_SCHEMAS[name] || ''}</div>
+      </div>
+    `).join('');
+
+  const rect = anchorEl.getBoundingClientRect();
+  const floaterWidth = 260;
+  const gap = 12;
+
+  let left;
+  if (rect.right + gap + floaterWidth < window.innerWidth){
+    left = rect.right + gap;
+  } else if (rect.left - gap - floaterWidth > 0){
+    left = rect.left - gap - floaterWidth;
+  } else {
+    left = Math.max(10, window.innerWidth - floaterWidth - 10);
+  }
+
+  let top = rect.top;
+  const floaterHeight = Math.min(80 + names.length * 55, window.innerHeight - 20);
+  if (top + floaterHeight > window.innerHeight){
+    top = Math.max(10, window.innerHeight - floaterHeight - 10);
+  }
+
+  floater.style.left = left + 'px';
+  floater.style.top = top + 'px';
+  floater.classList.add('show');
+}
+
+function hideSchemaFloater(){
+  document.getElementById('schemaFloater').classList.remove('show');
+}
+
+function showSolutionPopup(answerSQL){
+  document.getElementById('solutionText').textContent = answerSQL;
+  document.getElementById('solutionOverlay').classList.remove('hidden');
+}
+function hideSolutionPopup(){
+  document.getElementById('solutionOverlay').classList.add('hidden');
+}
+
+function setupBand(bandIndex, items, onBandComplete, tables){
+  const storageKeyBase = 'qops_ws_b' + bandIndex + '_';
+
+  // Resume at the first exercise that isn't already marked done,
+  // instead of always restarting at 0 — fixes the checker silently
+  // comparing against the wrong exercise after navigating away and back.
+  let current = 0;
+  while (current < items.length - 1 && localStorage.getItem(storageKeyBase + current) === 'done'){
+    current++;
+  }
+
+  let advanceTimer, debounceTimer, hasAdvancedForCurrent = false;
+
+  const listEl = document.getElementById('taskList-' + bandIndex);
+  const tableFrame = document.getElementById('tableFrame-' + bandIndex);
+  const errorBanner = document.getElementById('errorBanner-' + bandIndex);
+  const queryBox = document.getElementById('queryBox-' + bandIndex);
+  const continueBtn = document.getElementById('continueBtn-' + bandIndex);
+
+  renderTable(tableFrame, db.exec('SELECT * FROM Customers;'));
+
+  function renderList(){
+    listEl.innerHTML = '';
+    items.forEach((ex, i) => {
+      const li = document.createElement('li');
+      li.textContent = ex.prompt;
+      const done = localStorage.getItem(storageKeyBase + i) === 'done';
+      if (done) li.classList.add('complete');
+      else if (i === current) li.classList.add('current');
+      else li.classList.add('pending');
+      listEl.appendChild(li);
+    });
+  }
+
+  function setContinueState(ready){
+    if (current === items.length - 1 && ready){
+      continueBtn.textContent = 'Complete ✓';
+      continueBtn.disabled = true;
+      continueBtn.classList.remove('ready');
+      continueBtn.classList.add('done');
+      updateOverallProgress();
+      if (typeof onBandComplete === 'function') onBandComplete();
+      return;
+    }
+    continueBtn.classList.remove('done');
+    if (ready){
+      continueBtn.classList.add('ready');
+      continueBtn.disabled = false;
+      continueBtn.textContent = 'Continue';
+    } else {
+      continueBtn.classList.remove('ready');
+      continueBtn.disabled = true;
+      continueBtn.textContent = 'Continue';
+    }
+  }
+
+  let errorDelayTimer;
+
+  function showError(message){
+    clearTimeout(errorDelayTimer);
+    errorDelayTimer = setTimeout(() => {
+      errorBanner.textContent = message;
+      errorBanner.style.display = 'block';
+    }, 1000);
+  }
+  function hideError(){
+    clearTimeout(errorDelayTimer);
+    errorBanner.style.display = 'none';
+  }
+
+  function evaluate(){
+    const sqlText = queryBox.value;
+
+    if (sqlText.trim() === ''){
+      hideError();
+      renderTable(tableFrame, db.exec('SELECT * FROM Customers;'));
+      setContinueState(false);
+      return;
+    }
+
+    let userResult;
+    try {
+      userResult = db.exec(sqlText);
+    } catch(err){
+      // On error, leave the table exactly as it was — only the banner changes.
+      showError(err.message);
+      setContinueState(false);
+      return;
+    }
+
+    hideError();
+    renderTable(tableFrame, userResult);
+
+    const expected = db.exec(items[current].answer);
+    const orderMatters = !!items[current].orderMatters;
+    const isMatch = matches(normalize(userResult, orderMatters), normalize(expected, orderMatters));
+
+    if (isMatch){
+      localStorage.setItem(storageKeyBase + current, 'done');
+      setContinueState(true);
+      renderList();
+      updateOverallProgress();
+      if (!hasAdvancedForCurrent && current < items.length - 1){
+        hasAdvancedForCurrent = true;
+        clearTimeout(advanceTimer);
+        advanceTimer = setTimeout(() => {
+          current++;
+          hasAdvancedForCurrent = false;
+          renderList();
+          evaluate();
+        }, 900);
+      }
+    } else {
+      setContinueState(false);
+    }
+  }
+
+  queryBox.addEventListener('focus', () => showSchemaFloater(queryBox, tables));
+  queryBox.addEventListener('blur', hideSchemaFloater);
+
+  queryBox.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(evaluate, 600);
+  });
+
+  document.querySelector(`.reset-link[data-band="${bandIndex}"]`).addEventListener('click', () => {
+    queryBox.value = '';
+    resetSandbox();
+    hideError();
+    renderList();
+    renderTable(tableFrame, db.exec('SELECT * FROM Customers;'));
+    setContinueState(false);
+  });
+
+  continueBtn.addEventListener('click', () => {
+    if (localStorage.getItem(storageKeyBase + current) === 'done' && current < items.length - 1){
+      clearTimeout(advanceTimer);
+      current++;
+      hasAdvancedForCurrent = false;
+      renderList();
+      evaluate();
+    }
+  });
+
+  const solutionBtn = document.querySelector(`.solution-link[data-solution-band="${bandIndex}"]`);
+  if (solutionBtn){
+    solutionBtn.addEventListener('click', () => {
+      showSolutionPopup(items[current].answer);
+    });
+  }
+
+  renderList();
+
+  if (localStorage.getItem(storageKeyBase + current) === 'done'){
+    setContinueState(true);
+  }
+}
+
+
+function updateOverallProgress(){
+  let total = 0, done = 0;
+  BANDS.forEach((band, bi) => {
+    band.items.forEach((ex, i) => {
+      total++;
+      if (localStorage.getItem('qops_ws_b' + bi + '_' + i) === 'done') done++;
+    });
+  });
+  const pct = total === 0 ? 0 : Math.round((done/total)*100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = pct + '%';
+}
+
+let currentLessonId = null;
+
+function markBandComplete(bandIndex, items){
+  items.forEach((_, i) => localStorage.setItem('qops_ws_b' + bandIndex + '_' + i, 'done'));
+}
+
+function adminCompletePart1(){
+  BANDS.forEach((band, i) => markBandComplete(i, band.items));
+  if (currentLessonId === 'writing-1') loadLesson('writing-1');
+  maybeTriggerSkillCheck1Notification();
+  updateOverallProgress();
+}
+
+function adminCompleteSkillCheck1(){
+  if (localStorage.getItem('qops_skillcheck1_unlocked') !== 'true') unlockSkillCheck1();
+  markBandComplete(SKILLCHECK1_BAND_ID, SKILLCHECK1_ITEMS);
+  if (currentLessonId === 'skill-check-1') loadLesson('skill-check-1');
+  maybeTriggerSkillCheck1Completion();
+  updateOverallProgress();
+}
+
+function adminUnlockSkillCheck1Silent(){
+  localStorage.setItem('qops_skillcheck1_notified', 'true'); // prevents the intro notification firing later
+  unlockSkillCheck1();
+}
+
+function adminCompletePart2(){
+  if (localStorage.getItem('qops_writing2_unlocked') !== 'true') maybeUnlockWriting2Force();
+  markBandComplete(WQ2_BAND_JOIN, WQ2_JOIN_ITEMS);
+  markBandComplete(WQ2_BAND_NULL, WQ2_NULL_ITEMS);
+  markBandComplete(WQ2_BAND_EXPR, WQ2_EXPR_ITEMS);
+  if (currentLessonId === 'writing-2') loadLesson('writing-2');
+  maybeUnlockWriting3();
+  updateOverallProgress();
+}
+
+function adminCompleteSkillCheck2(){
+  if (localStorage.getItem('qops_skillcheck2_unlocked') !== 'true') unlockSkillCheck2();
+  markBandComplete(SKILLCHECK2_BAND_ID, SKILLCHECK2_ITEMS);
+  if (currentLessonId === 'skill-check-2') loadLesson('skill-check-2');
+  maybeTriggerSkillCheck2Completion();
+  updateOverallProgress();
+}
+
+function adminCompletePart3(){
+  if (localStorage.getItem('qops_writing3_unlocked') !== 'true') maybeUnlockWriting3Force();
+  markBandComplete(WQ3_BAND_AGG, WQ3_AGG_ITEMS);
+  if (currentLessonId === 'writing-3') loadLesson('writing-3');
+  updateOverallProgress();
+}
+
+function maybeUnlockWriting2Force(){
+  localStorage.setItem('qops_writing2_unlocked', 'true');
+  const navEl = document.getElementById('nav-writing-2');
+  navEl.classList.remove('locked');
+  navEl.onclick = () => loadLesson('writing-2');
+}
+
+function maybeUnlockWriting3Force(){
+  localStorage.setItem('qops_writing3_unlocked', 'true');
+  const navEl = document.getElementById('nav-writing-3');
+  navEl.classList.remove('locked');
+  navEl.onclick = () => loadLesson('writing-3');
+}
+
+function adminResetAll(){
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++){
+    const key = localStorage.key(i);
+    if (key.startsWith('qops_')) keysToRemove.push(key);
+  }
+  keysToRemove.forEach(k => localStorage.removeItem(k));
+  location.reload();
+}
+
+document.getElementById('logoutIcon').addEventListener('click', () => {
+  const overlay = document.getElementById('fadeOverlay');
+  overlay.classList.add('active');
+  setTimeout(() => {
+    window.location.href = 'index.html';
+  }, 850);
+});
+document.getElementById('adminToggle').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('adminPanel').classList.toggle('hidden');
+});
+// Dev Tools has no visible trigger in the public build — open it with Ctrl+Shift+D (Cmd+Shift+D on Mac).
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd'){
+    e.preventDefault();
+    document.getElementById('adminPanel').classList.toggle('hidden');
+  }
+});
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('adminPanel');
+  if (!panel.contains(e.target) && e.target.id !== 'adminToggle'){
+    panel.classList.add('hidden');
+  }
+});
+document.querySelectorAll('#adminPanel button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const action = btn.dataset.action;
+    if (action === 'complete-part1') adminCompletePart1();
+    else if (action === 'complete-skillcheck1') adminCompleteSkillCheck1();
+    else if (action === 'unlock-skillcheck1') adminUnlockSkillCheck1Silent();
+    else if (action === 'complete-part2') adminCompletePart2();
+    else if (action === 'complete-part3') adminCompletePart3();
+    else if (action === 'complete-skillcheck2') adminCompleteSkillCheck2();
+    else if (action === 'replay-onboarding'){
+      localStorage.removeItem('qops_firstname');
+      runOnboardingIfNeeded();
+    }
+    else if (action === 'reset-all') adminResetAll();
+    document.getElementById('adminPanel').classList.add('hidden');
+  });
+});
+
+function showEmailNotification(sender, onOpen){
+  const notif = document.getElementById('emailNotification');
+  const avatar = document.getElementById('emailNotifAvatar');
+  const nameEl = document.getElementById('emailNotifName');
+
+  avatar.textContent = sender === 'Cal' ? 'C' : 'A';
+  avatar.className = 'email-avatar ' + (sender === 'Cal' ? 'avatar-cal' : 'avatar-ana');
+  nameEl.textContent = sender;
+
+  notif.classList.remove('hidden');
+  notif.onclick = () => {
+    notif.classList.add('hidden');
+    onOpen();
+  };
+}
+
+function openEmailViewer(config){
+  const overlay = document.getElementById('emailViewerOverlay');
+  const body = document.getElementById('emailViewerBody');
+
+  const metaLine = config.cc
+    ? `<b>${config.from}</b> to me<br><span style="color:#888;">cc: ${config.cc}</span>`
+    : `<b>${config.from}</b> to me`;
+
+  body.innerHTML = `
+    <div class="ev-subject">${config.subject}</div>
+    <div class="ev-meta">
+      <div class="email-avatar ${config.from === 'Cal' ? 'avatar-cal' : 'avatar-ana'}" style="width:34px;height:34px;font-size:14px;">${config.from === 'Cal' ? 'C' : 'A'}</div>
+      <div class="ev-meta-text">${metaLine}</div>
+    </div>
+    ${config.paragraphs.map(p => `<div class="ev-para">${p}</div>`).join('')}
+    <div class="ev-cta-row">
+      <button class="ev-cta-btn" id="emailViewerCtaBtn">${config.ctaLabel}</button>
+    </div>
+  `;
+
+  overlay.classList.remove('hidden');
+
+  document.getElementById('emailViewerCtaBtn').onclick = () => {
+    overlay.classList.add('hidden');
+    if (typeof config.onClose === 'function') config.onClose();
+  };
+}
+
+function closeEmailViewer(){
+  document.getElementById('emailViewerOverlay').classList.add('hidden');
+}
+
+function getGreetingName(){
+  const firstName = localStorage.getItem('qops_firstname');
+  if (firstName && firstName.length > 0 && firstName.length <= 20){
+    return `Hey ${firstName}!`;
+  }
+  return 'Hey there!';
+}
+
+function showAnaNotification(onOpen){
+  const notif = document.getElementById('anaNotification');
+  notif.classList.remove('hidden');
+  notif.onclick = () => {
+    notif.classList.add('hidden');
+    onOpen();
+  };
+}
+
+let currentChatSubmitHandler = null;
+
+function openChatPanel(messages, options){
+  options = options || {};
+  currentChatSubmitHandler = options.onSubmit || null;
+  const panel = document.getElementById('chatPanel');
+  const messagesEl = document.getElementById('chatMessages');
+  const inputRow = document.getElementById('chatInputRow');
+  const ctaRow = document.getElementById('chatCtaRow');
+  messagesEl.innerHTML = '';
+  inputRow.style.display = 'none';
+  ctaRow.style.display = 'none';
+  panel.classList.add('open');
+
+  let i = 0;
+  function showNext(){
+    if (i >= messages.length){
+      if (options.mode === 'input'){
+        inputRow.style.display = 'flex';
+        document.getElementById('chatInputBox').focus();
+      }
+      if (options.mode === 'cta') ctaRow.style.display = 'block';
+      return;
+    }
+    const typing = document.createElement('div');
+    typing.className = 'typing-indicator';
+    typing.innerHTML = '<span></span><span></span><span></span>';
+    messagesEl.appendChild(typing);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    setTimeout(() => {
+      typing.remove();
+      const bubble = document.createElement('div');
+      bubble.className = 'chat-bubble';
+      bubble.textContent = messages[i];
+      messagesEl.appendChild(bubble);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      i++;
+      setTimeout(showNext, 500);
+    }, 700);
+  }
+  showNext();
+}
+
+function closeChatPanel(){
+  document.getElementById('chatPanel').classList.remove('open');
+}
+
+function unlockSkillCheck1(){
+  localStorage.setItem('qops_skillcheck1_unlocked', 'true');
+  const navEl = document.getElementById('nav-skill-check-1');
+  navEl.classList.remove('locked');
+  navEl.onclick = () => loadLesson('skill-check-1');
+}
+
+function runOnboardingIfNeeded(){
+  if (localStorage.getItem('qops_firstname')){
+    return; // already introduced
+  }
+  openChatPanel([
+    "Hey! I'm Ana, the Senior Data Analyst here at QOast.",
+    "Welcome to QueryOps — I'll be your guide as you get comfortable with SQL and our database.",
+    "Before we dive in, what's your name?"
+  ], {
+    mode: 'input',
+    onSubmit: (value) => {
+      const firstName = (value.split(' ')[0] || 'there').trim();
+      localStorage.setItem('qops_firstname', firstName || 'there');
+    }
+  });
+}
+
+function maybeTriggerSkillCheck1Notification(){
+  if (localStorage.getItem('qops_skillcheck1_unlocked') === 'true') return;
+  if (localStorage.getItem('qops_skillcheck1_notified') === 'true') return;
+
+  const allDone = BANDS.every((band, bi) =>
+    localStorage.getItem('qops_ws_b' + bi + '_' + (band.items.length - 1)) === 'done'
+  );
+  if (!allDone) return;
+
+  localStorage.setItem('qops_skillcheck1_notified', 'true');
+  showAnaNotification(() => {
+    openChatPanel([
+      getGreetingName(),
+      "I see you've been working hard at learning SQL and getting comfortable with the tables in our database! I have a few things I'd like you to do, just to make sure everything is clicking.",
+      "Don't worry — It's nothing too hard!"
+    ], {
+      mode: 'input',
+      onSubmit: () => {
+        unlockSkillCheck1();
+        loadLesson('skill-check-1');
+      }
+    });
+  });
+}
+
+const SKILLCHECK1_ITEMS = [
+  { prompt: 'Find the first_name, last_name, and city for all customers in the "Gold" or "Platinum" tier.', answer: "SELECT first_name, last_name, city FROM Customers WHERE customer_tier IN ('Gold','Platinum');" },
+  { prompt: "Find the first_name, last_name, and email for customers whose email is from Yahoo or AOL.", answer: "SELECT first_name, last_name, email FROM Customers WHERE email LIKE '%@yahoo.com' OR email LIKE '%@aol.com';" },
+  { prompt: "Find the unique states our customers are located in, ordered alphabetically.", answer: "SELECT DISTINCT state FROM Customers ORDER BY state ASC;", orderMatters: true },
+  { prompt: "Find the first_name and last_name of the top 3 highest-spending customers who signed up after 2020-01-01.", answer: "SELECT first_name, last_name FROM Customers WHERE signup_date > '2020-01-01' ORDER BY lifetime_spend DESC LIMIT 3;", orderMatters: true },
+  { prompt: 'Find customers whose last_name starts with "B" and who are not in the "Bronze" tier.', answer: "SELECT * FROM Customers WHERE last_name LIKE 'B%' AND customer_tier != 'Bronze';" },
+  { prompt: "Find the first_name, last_name, and lifetime_spend of the 4th and 5th highest spenders.", answer: "SELECT first_name, last_name, lifetime_spend FROM Customers ORDER BY lifetime_spend DESC LIMIT 2 OFFSET 3;", orderMatters: true }
+];
+const SKILLCHECK1_BAND_ID = 10;
+
+const WQ2_BAND_JOIN = 40;
+const WQ2_BAND_NULL = 41;
+const WQ2_BAND_EXPR = 42;
+
+const WQ2_JOIN_ITEMS = [
+  { prompt: "Find the first_name, last_name, and order_date for every order placed, including which customer placed it.", answer: "SELECT c.first_name, c.last_name, o.order_date FROM Orders o JOIN Customers c ON o.customer_id = c.customer_id;" },
+  { prompt: "Find every customer's first_name and last_name, along with their order_id if they have one. Includes customers who haven't placed an order.", answer: "SELECT c.first_name, c.last_name, o.order_id FROM Customers c LEFT JOIN Orders o ON c.customer_id = o.customer_id;" },
+  { prompt: "Find the product_name and category for every item that has actually appeared in an order.", answer: "SELECT p.product_name, p.category FROM Products p JOIN Order_Items oi ON p.product_id = oi.product_id;" },
+  { prompt: "Find every product's product_name and stock_quantity, along with any order_id it appears in. Includes products that haven't been ordered yet.", answer: "SELECT p.product_name, p.stock_quantity, oi.order_id FROM Products p LEFT JOIN Order_Items oi ON p.product_id = oi.product_id;" },
+  { prompt: "Find the first_name, last_name, and total for every order over $200, including who placed it.", answer: "SELECT c.first_name, c.last_name, o.total FROM Orders o JOIN Customers c ON o.customer_id = c.customer_id WHERE o.total > 200;" },
+  { prompt: "Find every customer's first_name, last_name, and city, along with their total order count. Includes customers who haven't placed an order.", answer: "SELECT c.first_name, c.last_name, c.city, COUNT(o.order_id) AS order_count FROM Customers c LEFT JOIN Orders o ON c.customer_id = o.customer_id GROUP BY c.customer_id, c.first_name, c.last_name, c.city;" }
+];
+
+const WQ2_NULL_ITEMS = [
+  { prompt: "Find the first_name and last_name of all customers who have not placed an order yet.", answer: "SELECT c.first_name, c.last_name FROM Customers c LEFT JOIN Orders o ON c.customer_id = o.customer_id WHERE o.order_id IS NULL;" },
+  { prompt: "Find the names of any carriers being used, excluding rows where no carrier has been assigned.", answer: "SELECT DISTINCT carrier FROM Orders WHERE carrier IS NOT NULL;" }
+];
+
+const WQ2_EXPR_ITEMS = [
+  { prompt: "Calculate the total cost for each line item in Order_Items (quantity × unit_price), aliased as line_total.", answer: "SELECT quantity * unit_price AS line_total FROM Order_Items;" },
+  { prompt: "Find each product's price after a 15% discount, aliased as discounted_price.", answer: "SELECT product_name, unit_price * 0.85 AS discounted_price FROM Products;" },
+  { prompt: "Combine each customer's first_name and last_name into a single column called full_name.", answer: "SELECT first_name || ' ' || last_name AS full_name FROM Customers;" },
+  { prompt: "Calculate how many days each customer has been a member, based on their signup_date.", answer: "SELECT first_name, last_name, CAST(julianday('now') - julianday(signup_date) AS INTEGER) AS days_member FROM Customers;" },
+  { prompt: "Find the price per unit for each order_item by dividing the line total (quantity × unit_price) by quantity.", answer: "SELECT (quantity * unit_price) / quantity AS price_per_unit FROM Order_Items;" }
+];
+
+function buildWritingQueries2HTML(){
+  return `
+  <h2>Writing Queries — Part 2</h2>
+
+  <h3>JOIN</h3>
+  <p>Up to this point, we've only been working with data from a single table. However, you'll inevitably require data that is located on two or more different tables for the task you need to accomplish. Using our current data set, we've been pulling data from a single source. However, what if you wanted the name and also the orders they've placed, as well as the cost of those orders? That would require data from both the Customers and Orders tables. In order to get data from multiple tables, we use JOIN.</p>
+  <p><i>Note: There are several types of JOINs and, depending on the database management tool you're using, some options may not work. In SQLite, we'll be using INNER JOIN and LEFT JOIN, which are the most common JOINs, and the ones we'll be focusing on here.</i></p>
+
+  <p>We'll be working with three new tables in this lesson, alongside the Customers table you already know:</p>
+  <div class="schema-ref">
+    <div class="tname">Orders</div>
+    <div class="cols">order_id, customer_id, order_date, order_time, status, carrier, tracking_number, shipping_address, total</div>
+  </div>
+  <div class="schema-ref">
+    <div class="tname">Order_Items</div>
+    <div class="cols">item_id, order_id, product_id, quantity, unit_price</div>
+  </div>
+  <div class="schema-ref">
+    <div class="tname">Products</div>
+    <div class="cols">product_id, product_name, category, unit_price, stock_quantity</div>
+  </div>
+
+  <h3>INNER JOIN</h3>
+  <p>Let's look at the table structure for Customers and Orders:</p>
+  <table class="ref">
+    <tr><th>Customers</th><th>Orders</th></tr>
+    <tr><td><i>customer_id</i></td><td><i>order_id</i></td></tr>
+    <tr><td><i>first_name</i></td><td><i>customer_id</i></td></tr>
+    <tr><td><i>last_name</i></td><td><i>order_date</i></td></tr>
+    <tr><td><i>email</i></td><td><i>order_time</i></td></tr>
+    <tr><td><i>city</i></td><td><i>status</i></td></tr>
+    <tr><td><i>state</i></td><td><i>carrier</i></td></tr>
+    <tr><td><i>signup_date</i></td><td><i>tracking_number</i></td></tr>
+    <tr><td><i>lifetime_spend</i></td><td><i>shipping_address</i></td></tr>
+    <tr><td><i>customer_tier</i></td><td><i>total</i></td></tr>
+  </table>
+  <p>We can see that the customer's first_name and last_name are in the Customers table, but the order_id and total are in the Orders table. This is exactly what an INNER JOIN helps us with. INNER JOIN combines the tables and returns the rows where there are matches. This makes sure that any row that doesn't match will be excluded.</p>
+  <p>In order to do a JOIN, we have to find a shared column between the tables. In the tables above, the column <code>customer_id</code> is a match between the two tables, so we'll be using that to pair them together. We do this using ON. It'll look like this:</p>
+  <pre class="snippet"><span class="kw">SELECT</span> c.first_name, c.last_name, o.order_id, o.total
+<span class="kw">FROM</span> Customers c
+<span class="kw">INNER JOIN</span> Orders o
+<span class="kw">ON</span> c.customer_id = o.customer_id;</pre>
+  <p>Let's break that down:</p>
+  <p>1. In the SELECT statement, we listed the first_name, last_name, the order_id, and the total. Because we're using multiple tables, we need to use aliases in order to tell SQL which table to get the data from by using your alias + a period (<code>c.</code>). You can use the table name itself (<code>orders.order_id</code>), but that can become messy very quickly. You don't have to use the first letter of the table name, but make sure you're following readability best practices and making the code legible for everyone! Also, we don't use AS when creating aliases for tables — we just put a space after the table name, and your choice of alias.<br>
+  2. The FROM statement includes our first table, which is Customers (with the alias c).<br>
+  3. The INNER JOIN is where we tell SQL which table we want to join to our FROM table, in this case, Orders (with the alias o).<br>
+  4. Finally, we tell SQL which columns we want to use to connect the two tables by using ON, and the name of the columns connected with an =. You have to use the aliases to ensure you're pulling from the right tables.</p>
+  <p><b>Quick note:</b> moving forward, we'll just write JOIN instead of INNER JOIN. INNER is the default type, so SQL already assumes that's what you mean. This is also just how most analysts write it in practice, so getting used to seeing it without the word INNER will help when you're reading other people's code and working in production. This shortcut only works for INNER JOIN though, as LEFT JOIN and other types still need to be spelled out.</p>
+
+  <h3>LEFT JOIN</h3>
+  <p>The format for LEFT JOIN is exactly the same as JOIN, but it returns all rows from the first table you list (the "left" table), even if there isn't a match in the second table. For example, if a customer never placed an order, JOIN would leave them out entirely since there's no order to match. LEFT JOIN keeps that customer in the results, just with empty (NULL) values for any order-related columns. That's great for seeing your full customer base, not just the ones who've placed orders, and is helpful for things like trend analysis for non-spenders.</p>
+  <p>Let's practice those JOINs!</p>
+  ${buildExercisesBandHTML(WQ2_BAND_JOIN, 'Exercises')}
+
+  <h3>NULL</h3>
+  <p>In the LEFT JOIN section, we saw NULL values appear for the first time. NULL represents missing or unknown data, which is different from an empty string ('') or a zero (0), which ARE values that just happen to be blank or nothing. While many databases use empty strings or zeros by default instead of NULL, every database and the people who enter data into those databases is different. Being able to account for these null values is important!</p>
+  <p>When there's no match in the joined table, LEFT JOIN fills those columns with NULL instead of leaving the row out entirely. But, what if we ONLY wanted the NULL values? To do that, we use IS NULL in the WHERE statement.</p>
+  <pre class="snippet"><span class="kw">SELECT</span> c.first_name, c.last_name, o.order_id, o.total
+<span class="kw">FROM</span> Customers c
+<span class="kw">LEFT JOIN</span> Orders o
+<span class="kw">ON</span> c.customer_id = o.customer_id
+<span class="kw">WHERE</span> o.order_id <span class="kw">IS NULL</span></pre>
+  <p>If we only wanted to see the values where there are no NULL values, we could simply use a regular JOIN, or, we could use IS NOT NULL.</p>
+  <p>Let's practice!</p>
+  ${buildExercisesBandHTML(WQ2_BAND_NULL, 'Exercises')}
+
+  <h3>Expressions</h3>
+  <p>Every database has its own set of expressions that can be used to further refine data in queries, including changing the format of timestamps, doing complex mathematical calculations, and even editing strings! For SQLite, you can find more information in the documentation.</p>
+  <p>Expressions are very powerful and can help with streamlining your workflow by doing calculations directly in the query rather than after the fact, but they have the unintended consequence of creating difficult to read column names. It is always a good idea to create a descriptive alias using AS in SELECT statements to ensure the result is understandable for anyone reading it. Adding comments may also go a long way in explaining the expression itself, your reasoning behind the alias, or anything else that might be beneficial to anyone using that query in the future (including yourself!).</p>
+  <pre class="snippet"><span class="kw">/* Calculate the total cost per line item by multiplying
+quantity by unit price */</span>
+<span class="kw">SELECT</span> quantity * unit_price <span class="kw">AS</span> line_total
+<span class="kw">FROM</span> Order_Items;</pre>
+
+  <h3>Combining Text with ||</h3>
+  <p>Sometimes the value you want isn't a calculation, it's a combination of text that already exists across different columns. For that, SQLite uses the concatenation operator: two pipe symbols, <code>||</code>. It joins the values on either side into a single string.</p>
+  <pre class="snippet"><span class="kw">SELECT</span> first_name || <span class="str">' '</span> || last_name <span class="kw">AS</span> full_name
+<span class="kw">FROM</span> Customers;</pre>
+  <p>Notice the <code>' '</code> in the middle. Without it, you'd get "JohnSmith" instead of "John Smith." The operator only joins what you give it, so any spacing or punctuation has to be added explicitly as its own piece of the expression.</p>
+  <p><b>One thing to watch for:</b> if any value being joined is NULL, the entire result becomes NULL. If a customer's last_name is missing, <code>first_name || ' ' || last_name</code> returns NULL instead of just the first name. COALESCE (which you'll see used elsewhere in this course) is the usual fix for that.</p>
+  <p>For the full list of SQLite's string functions, see the <a href="https://www.sqlitetutorial.net/sqlite-string-functions/sqlite-concat/" target="_blank" rel="noopener">SQLite Tutorial reference on string concatenation</a>.</p>
+
+  <h3>Working with Dates</h3>
+  <p>Dates in this course are stored as plain text in ISO format, like <code>'2026-07-11'</code>. SQLite doesn't have a dedicated date type, it just reads that text directly with its built-in date functions, so no conversion step is needed.</p>
+  <p>The most common thing you'll be asked to do is find the number of days between two dates, which uses <code>julianday()</code> to convert each date into a number, then subtract:</p>
+  <pre class="snippet"><span class="kw">SELECT</span> first_name, last_name,
+<span class="fn">CAST</span>(<span class="fn">julianday</span>(<span class="str">'now'</span>) - <span class="fn">julianday</span>(signup_date) <span class="kw">AS</span> INTEGER) <span class="kw">AS</span> days_member
+<span class="kw">FROM</span> Customers;</pre>
+  <p>The CAST is there because julianday() returns a decimal (it's tracking fractions of a day), and we usually only care about whole days for something like membership length.</p>
+  <p>You'll also see <code>strftime()</code> used to pull out just a piece of a date, like the year or month:</p>
+  <pre class="snippet"><span class="kw">SELECT</span> <span class="fn">strftime</span>(<span class="str">'%Y'</span>, order_date) <span class="kw">AS</span> order_year
+<span class="kw">FROM</span> Orders;</pre>
+  <p>For the full list of SQLite's date and time functions, see the <a href="https://www.sqlitetutorial.net/sqlite-date/" target="_blank" rel="noopener">SQLite Tutorial reference on dates</a>.</p>
+
+  <p>Let's practice!</p>
+  ${buildExercisesBandHTML(WQ2_BAND_EXPR, 'Exercises')}
+  `;
+}
+
+const WQ3_BAND_AGG = 50;
+
+const WQ3_AGG_ITEMS = [
+  { prompt: "Find the total revenue (sum of total) generated by orders in each state.", answer: "SELECT c.state, SUM(o.total) AS total_revenue FROM Customers c JOIN Orders o ON c.customer_id = o.customer_id GROUP BY c.state;" },
+  { prompt: "Find the number of orders placed by each customer, showing their first_name, last_name, and order count.", answer: "SELECT c.first_name, c.last_name, COUNT(o.order_id) AS order_count FROM Customers c JOIN Orders o ON c.customer_id = o.customer_id GROUP BY c.customer_id, c.first_name, c.last_name;" },
+  { prompt: "Find the average unit_price for each product category.", answer: "SELECT category, AVG(unit_price) AS avg_unit_price FROM Products GROUP BY category;" },
+  { prompt: "Find the highest lifetime_spend among customers in each customer_tier.", answer: "SELECT customer_tier, MAX(lifetime_spend) AS max_spend FROM Customers GROUP BY customer_tier;" },
+  { prompt: "Find the total quantity sold for each product_id in Order_Items.", answer: "SELECT product_id, SUM(quantity) AS total_quantity FROM Order_Items GROUP BY product_id;" }
+];
+
+function buildWritingQueries3HTML(){
+  return `
+  <h2>Writing Queries — Part 3</h2>
+
+  <h3>Aggregates — Part 1</h3>
+  <p>Building on the expressions we learned in the previous section, SQL has built in functions called aggregates that summarize rows of data in a column. Without specifying how to group the data, SQL will run the function on the data and return a single value. Also, like before, you should use aliases to make your output columns easier to read.</p>
+  <table class="ref">
+    <tr><th>Function</th><th>Description</th></tr>
+    <tr><td><code>COUNT(*)</code> / <code>COUNT(column)</code></td><td>COUNT(*) counts the total number of rows in the result set, regardless of what values are in them. If you specify a column, COUNT(column), it only counts rows where that column has a non-NULL value.</td></tr>
+    <tr><td><code>MIN(column)</code></td><td>Finds the smallest numerical value in the specified column for all rows in the set.</td></tr>
+    <tr><td><code>MAX(column)</code></td><td>Finds the largest numerical value in the specified column for all rows in the set.</td></tr>
+    <tr><td><code>AVG(column)</code></td><td>Finds the average numerical value in the specified column for all rows in the set.</td></tr>
+    <tr><td><code>SUM(column)</code></td><td>Finds the sum of all numerical values in the specified column for the rows in the set.</td></tr>
+  </table>
+  <p>Let's say we want to find aggregates for specific rows of data based on requested criteria, like "What is the average order total for customers in Boston, Chicago, and Dallas?" To do this, we use the clause GROUP BY to tell SQL how to group the results of the aggregate. The GROUP BY clause works by grouping rows that have the same value in the column specified.</p>
+  <pre class="snippet"><span class="kw">SELECT</span> c.city, <span class="fn">AVG</span>(o.total) <span class="kw">AS</span> avg_order_total
+<span class="kw">FROM</span> Customers c
+<span class="kw">JOIN</span> Orders o
+<span class="kw">ON</span> c.customer_id = o.customer_id
+<span class="kw">WHERE</span> c.city <span class="kw">IN</span> (<span class="str">'Boston'</span>, <span class="str">'Chicago'</span>, <span class="str">'Dallas'</span>)
+<span class="kw">GROUP BY</span> c.city;</pre>
+  ${buildExercisesBandHTML(WQ3_BAND_AGG, 'Exercises')}
+
+  <h3>Aggregates — Part 2</h3>
+  <p>We've gone from making simple queries like answering "Show me every city where we have a customer" to advanced queries that JOINed multiple tables, aggregated data, and filtered that data down to the exact data we're looking for. Great job!</p>
+  <p>In the example from part 1, you may have noticed that GROUP BY is after the WHERE clause constraints, so they don't apply to the GROUP BY clause at all. To do that, we filter GROUP BY clauses using HAVING clauses. HAVING will allow us to further refine our results after the GROUP BY has been completed. From our previous example, let's say that after providing the results of our group by, we're asked "Which of those cities have an average order total over $1000?" We can use HAVING to answer exactly that!</p>
+  <pre class="snippet"><span class="kw">SELECT</span> c.city, <span class="fn">AVG</span>(o.total) <span class="kw">AS</span> avg_order_total
+<span class="kw">FROM</span> Customers c
+<span class="kw">JOIN</span> Orders o
+<span class="kw">ON</span> c.customer_id = o.customer_id
+<span class="kw">WHERE</span> c.city <span class="kw">IN</span> (<span class="str">'Boston'</span>, <span class="str">'Chicago'</span>, <span class="str">'Dallas'</span>)
+<span class="kw">GROUP BY</span> c.city
+<span class="kw">HAVING</span> <span class="fn">AVG</span>(o.total) &gt; 1000;</pre>
+  <p>The HAVING clause is written the same way as the WHERE clause, but is only applied to the grouped rows. In our example, it seems unnecessary (and it is… our example would only return 3 rows at most!), but imagine if you're working with a database that has tables with millions of rows of data! Being able to further refine that data is often essential when trying to gain a quick, high-level understanding of the data you're working with.</p>
+  <p>Also, if you aren't using GROUP BY, WHERE clauses are all that are necessary. In our example above, if we wanted to filter by a single order's total (not the average), we'd use WHERE, since we're requesting the data as is from the table rather than something calculated after grouping.</p>
+
+  <h3>Order of Operations in SQL</h3>
+  <p>In the previous section, we talked briefly about the WHERE clause happening before the GROUP BY clause, but let's look at the order of operations for SQL as a whole, since it's essential to not only properly structuring your queries, but also troubleshooting when errors pop up. Let's breakdown the following query to see when each clause takes place:</p>
+  <pre class="snippet"><span class="kw">SELECT</span> c.first_name, c.last_name, <span class="fn">COUNT</span>(o.order_id) <span class="kw">AS</span> num_of_orders
+<span class="kw">FROM</span> Customers c
+<span class="kw">JOIN</span> Orders o
+<span class="kw">ON</span> c.customer_id = o.customer_id
+<span class="kw">WHERE</span> o.total &gt; 100
+<span class="kw">GROUP BY</span> c.first_name, c.last_name
+<span class="kw">HAVING</span> <span class="fn">COUNT</span>(o.order_id) &gt; 1
+<span class="kw">ORDER BY</span> c.last_name <span class="kw">ASC</span>
+<span class="kw">LIMIT</span> 10;</pre>
+  <table class="ref">
+    <tr><th>Clause</th><th>What happens</th></tr>
+    <tr><td><b>FROM and JOINs</b><br><code>FROM Customers c</code></td><td>The FROM clause, followed by any subsequent JOINs, run first to determine the set of data that is being queried. This includes subqueries (which we'll see later!) in this clause which creates temporary tables to query against.</td></tr>
+    <tr><td><b>WHERE</b><br><code>WHERE o.total &gt; 100</code></td><td>Once we know the set of data we're using, WHERE constraints are applied to the individual rows, and rows that do not match the constraints are discarded. Constraints can only access columns from the tables in the FROM clause. Note: in most databases, aliases in the SELECT statement are unable to be used here, since SELECT is run later, so you must use the column name.</td></tr>
+    <tr><td><b>GROUP BY</b><br><code>GROUP BY c.first_name, c.last_name</code></td><td>After the WHERE constraints are applied, the results are then grouped based on the values in the column(s) specified in the GROUP BY clause, and there will only be as many rows as there are values in that column. GROUP BY is only necessary when using an aggregate function.</td></tr>
+    <tr><td><b>HAVING</b><br><code>HAVING COUNT(o.order_id) &gt; 1</code></td><td>When there is a GROUP BY clause, here the constraints in the HAVING clause are applied to the grouped rows, and the grouped rows that don't match the constraint are discarded. Like the WHERE clause, aliases are still not accessible here.</td></tr>
+    <tr><td><b>SELECT</b><br><code>SELECT c.first_name, c.last_name, COUNT(o.order_id)</code></td><td>Any expressions in the SELECT statement are finally run.</td></tr>
+    <tr><td><b>DISTINCT</b></td><td>We're not using DISTINCT in this example, but it's important to know what it is and where it falls in the Order of Operations. Of the remaining rows, rows with duplicate values in the column marked as DISTINCT will be discarded. DISTINCT looks at every row of all selected columns, and a row is only removed if every column matches another row exactly.</td></tr>
+    <tr><td><b>ORDER BY</b><br><code>ORDER BY c.last_name ASC</code></td><td>If an order is specified by the ORDER BY clause, the rows are then sorted by the specified data in either ascending (ASC) or descending (DESC) order. Since all the expressions in the SELECT part of the query have been computed, you can now reference aliases.</td></tr>
+    <tr><td><b>LIMIT / OFFSET</b><br><code>LIMIT 10;</code></td><td>Finally, rows that fall outside the range specified by the LIMIT and/or OFFSET are discarded, leaving the final set of rows to be returned from the query.</td></tr>
+  </table>
+  <p>As a final note, as you've seen through the course thus far, you don't need to use every part of a query for it to run, which is what makes SQL so flexible. During your day-to-day, you'll inevitably be asked to further drill down on specific data points, and sometimes, getting that data can be as simple as adding a single line or filter to your query. Additionally, this flexibility also enables analysts to borrow queries and fine-tune them to their individual needs!</p>
+  `;
+}
+
+
+const SKILLCHECK2_BAND_ID = 70;
+
+const SKILLCHECK2_ITEMS = [
+  { prompt: "Find the product_name and category for products that have never been ordered.", answer: "SELECT p.product_name, p.category FROM Products p LEFT JOIN Order_Items oi ON p.product_id = oi.product_id WHERE oi.order_id IS NULL;" },
+  { prompt: "Find the total revenue per carrier, showing only carriers with more than 2 orders.", answer: "SELECT carrier, SUM(total) AS total_revenue FROM Orders WHERE carrier IS NOT NULL GROUP BY carrier HAVING COUNT(*) > 2;" },
+  { prompt: "Find the average order total per customer_tier, highest to lowest.", answer: "SELECT c.customer_tier, AVG(o.total) AS avg_order_total FROM Customers c JOIN Orders o ON c.customer_id = o.customer_id GROUP BY c.customer_tier ORDER BY avg_order_total DESC;", orderMatters: true },
+  { prompt: "Find cities with combined order totals over $100, showing city and total, top 5.", answer: "SELECT c.city, SUM(o.total) AS total FROM Customers c JOIN Orders o ON c.customer_id = o.customer_id GROUP BY c.city HAVING SUM(o.total) > 100 ORDER BY total DESC LIMIT 5;", orderMatters: true },
+  { prompt: "Calculate each order_item's line_total (quantity × unit_price), showing only items where line_total exceeds $100.", answer: "SELECT quantity * unit_price AS line_total FROM Order_Items WHERE quantity * unit_price > 100;" },
+  { prompt: "Find each customer's full name (first + last combined) and order count, for customers with more than 1 order, sorted alphabetically by last name, top 10.", answer: "SELECT first_name || ' ' || last_name AS full_name, COUNT(o.order_id) AS order_count FROM Customers c JOIN Orders o ON c.customer_id = o.customer_id GROUP BY c.customer_id, c.first_name, c.last_name HAVING COUNT(o.order_id) > 1 ORDER BY c.last_name ASC LIMIT 10;", orderMatters: true }
+];
+
+function buildSkillCheck2HTML(){
+  return `
+  <h2>Skill Check 2</h2>
+  <p>Ana's working on another project and could use your help with these queries. They're a little more complex than last time, but nothing you can't handle.</p>
+  ${buildExercisesBandHTML(SKILLCHECK2_BAND_ID, 'Skill Check 2', false)}
+  `;
+}
+
+function maybeTriggerSkillCheck2Notification(){
+  if (localStorage.getItem('qops_skillcheck2_unlocked') === 'true') return;
+  if (localStorage.getItem('qops_skillcheck2_notified') === 'true') return;
+
+  const last = WQ3_AGG_ITEMS.length - 1;
+  const allDone = localStorage.getItem('qops_ws_b' + WQ3_BAND_AGG + '_' + last) === 'done';
+  if (!allDone) return;
+
+  localStorage.setItem('qops_skillcheck2_notified', 'true');
+  showEmailNotification('Ana', () => {
+    openEmailViewer({
+      subject: "Could use your help with a few more queries",
+      from: 'Ana',
+      paragraphs: [
+        `${getGreetingName()} You've been practicing with some more advanced topics, right? Great!`,
+        "I am working on another project and could REALLY use your help with these queries! They're a little more complex, but there isn't anything here you can't handle!",
+        "I'll check back in a bit to see where you're at!"
+      ],
+      ctaLabel: 'Open Skill Check 2',
+      onClose: () => {
+        unlockSkillCheck2();
+        loadLesson('skill-check-2');
+      }
+    });
+  });
+}
+
+function unlockSkillCheck2(){
+  localStorage.setItem('qops_skillcheck2_unlocked', 'true');
+  const navEl = document.getElementById('nav-skill-check-2');
+  navEl.classList.remove('locked');
+  navEl.onclick = () => loadLesson('skill-check-2');
+}
+
+function maybeTriggerSkillCheck2Completion(){
+  const last = SKILLCHECK2_ITEMS.length - 1;
+  const allDone = localStorage.getItem('qops_ws_b' + SKILLCHECK2_BAND_ID + '_' + last) === 'done';
+  if (!allDone) return;
+  if (localStorage.getItem('qops_skillcheck2_complete_notified') === 'true') return;
+  localStorage.setItem('qops_skillcheck2_complete_notified', 'true');
+
+  showEmailNotification('Ana', () => {
+    openEmailViewer({
+      subject: "Thank you so much!",
+      from: 'Ana',
+      paragraphs: [
+        `Thank you so much${localStorage.getItem('qops_firstname') ? ' ' + localStorage.getItem('qops_firstname') : ''}! This is exactly what our boss needed to run their weekly reports!`,
+        "I'll make sure to let them know where you're at, and I'm sure there'll be a few mission-critical requests coming your way. No sweat though, you've got this!"
+      ],
+      ctaLabel: 'Close',
+      onClose: () => {
+        setTimeout(triggerCalFollowUpEmail, 1500);
+      }
+    });
+  });
+}
+
+function triggerCalFollowUpEmail(){
+  showEmailNotification('Cal', () => {
+    openEmailViewer({
+      subject: "Nice work on those reports",
+      from: 'Cal',
+      cc: 'Ana',
+      paragraphs: [
+        "Ana passed along the queries you pulled together — this is exactly the kind of turnaround our team needs.",
+        "Keep this up and I'll start looping you in on requests directly. Good work."
+      ],
+      ctaLabel: 'Got it',
+      onClose: () => {
+        // Placeholder unlock point for Subqueries, once that lesson is built.
+      }
+    });
+  });
+}
+
+function buildSkillCheck1HTML(){
+  return `
+  <h2>Skill Check 1</h2>
+  <p>Ana wants to make sure everything from Writing Queries — Part 1 is clicking before you move on. Work through these six requests using the same Customers table.</p>
+  ${buildExercisesBandHTML(SKILLCHECK1_BAND_ID, 'Skill Check 1', false)}
+  `;
+}
+
+function maybeTriggerSkillCheck1Completion(){
+  const last = SKILLCHECK1_ITEMS.length - 1;
+  const allDone = localStorage.getItem('qops_ws_b' + SKILLCHECK1_BAND_ID + '_' + last) === 'done';
+  if (!allDone) return;
+  if (localStorage.getItem('qops_skillcheck1_complete_notified') === 'true') return;
+  localStorage.setItem('qops_skillcheck1_complete_notified', 'true');
+
+  showAnaNotification(() => {
+    openChatPanel([
+      "Wow, you finished that really quick — great job!",
+      "I don't have anything else for you to do right this minute, but, don't worry… Things here at QOast are ramping up, and with the week ending, I am sure there will be SOMETHING that comes up.",
+      "Talk to you later!"
+    ], { mode: 'cta' });
+  });
+}
+
+function maybeUnlockWriting2(){
+  if (localStorage.getItem('qops_writing2_unlocked') === 'true') return;
+  const last = SKILLCHECK1_ITEMS.length - 1;
+  const done = localStorage.getItem('qops_ws_b' + SKILLCHECK1_BAND_ID + '_' + last) === 'done';
+  if (!done) return;
+  localStorage.setItem('qops_writing2_unlocked', 'true');
+  const navEl = document.getElementById('nav-writing-2');
+  navEl.classList.remove('locked');
+  navEl.onclick = () => loadLesson('writing-2');
+}
+
+function maybeUnlockWriting3(){
+  if (localStorage.getItem('qops_writing3_unlocked') === 'true') return;
+  const joinDone = localStorage.getItem('qops_ws_b' + WQ2_BAND_JOIN + '_' + (WQ2_JOIN_ITEMS.length - 1)) === 'done';
+  const nullDone = localStorage.getItem('qops_ws_b' + WQ2_BAND_NULL + '_' + (WQ2_NULL_ITEMS.length - 1)) === 'done';
+  const exprDone = localStorage.getItem('qops_ws_b' + WQ2_BAND_EXPR + '_' + (WQ2_EXPR_ITEMS.length - 1)) === 'done';
+  if (!(joinDone && nullDone && exprDone)) return;
+  localStorage.setItem('qops_writing3_unlocked', 'true');
+  const navEl = document.getElementById('nav-writing-3');
+  navEl.classList.remove('locked');
+  navEl.onclick = () => loadLesson('writing-3');
+}
+
+function loadLesson(id){
+  currentLessonId = id;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + id);
+  if (navEl) navEl.classList.add('active');
+
+  const pane = document.getElementById('contentPane');
+  let statusLabel = '';
+  if (id === 'what-is-sql'){
+    pane.innerHTML = WHAT_IS_SQL_HTML;
+    statusLabel = 'What is SQL?';
+  } else if (id === 'writing-1'){
+    pane.innerHTML = buildWritingQueries1HTML();
+    BANDS.forEach((band, i) => setupBand(i, band.items, maybeTriggerSkillCheck1Notification, ['Customers']));
+    statusLabel = 'Writing Queries — Part 1';
+  } else if (id === 'skill-check-1'){
+    pane.innerHTML = buildSkillCheck1HTML();
+    setupBand(SKILLCHECK1_BAND_ID, SKILLCHECK1_ITEMS, () => {
+      maybeTriggerSkillCheck1Completion();
+      maybeUnlockWriting2();
+    }, ['Customers']);
+    statusLabel = 'Skill Check 1';
+  } else if (id === 'writing-2'){
+    pane.innerHTML = buildWritingQueries2HTML();
+    setupBand(WQ2_BAND_JOIN, WQ2_JOIN_ITEMS, maybeUnlockWriting3, ['Customers', 'Orders', 'Order_Items', 'Products']);
+    setupBand(WQ2_BAND_NULL, WQ2_NULL_ITEMS, maybeUnlockWriting3, ['Customers', 'Orders']);
+    setupBand(WQ2_BAND_EXPR, WQ2_EXPR_ITEMS, maybeUnlockWriting3, ['Order_Items', 'Products', 'Customers']);
+    statusLabel = 'Writing Queries — Part 2';
+  } else if (id === 'writing-3'){
+    pane.innerHTML = buildWritingQueries3HTML();
+    setupBand(WQ3_BAND_AGG, WQ3_AGG_ITEMS, maybeTriggerSkillCheck2Notification, ['Customers', 'Orders', 'Order_Items', 'Products']);
+    statusLabel = 'Writing Queries — Part 3';
+  } else if (id === 'skill-check-2'){
+    pane.innerHTML = buildSkillCheck2HTML();
+    setupBand(SKILLCHECK2_BAND_ID, SKILLCHECK2_ITEMS, maybeTriggerSkillCheck2Completion, ['Customers', 'Orders', 'Order_Items', 'Products']);
+    statusLabel = 'Skill Check 2';
+  }
+  pane.scrollTop = 0;
+  document.getElementById('statusRight').textContent = 'Status: Viewing — ' + statusLabel;
+}
+
+function showIntroModal(){
+  document.getElementById('introModal').classList.remove('hidden');
+}
+function hideIntroModal(){
+  document.getElementById('introModal').classList.add('hidden');
+}
+
+function updateSystemClock(){
+  const now = new Date();
+  const dateStr = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const el = document.getElementById('sysClock');
+  if (el) el.textContent = `${dateStr}  •  ${timeStr}`;
+}
+
+function displaySystemBarUserName(){
+  const username = localStorage.getItem('qops_username');
+  const el = document.getElementById('sbUserName');
+  el.textContent = username && username.length > 0 ? username : 'guest';
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  updateSystemClock();
+  setInterval(updateSystemClock, 1000);
+  displaySystemBarUserName();
+  await initDatabase();
+  document.getElementById('nav-what-is-sql').addEventListener('click', () => loadLesson('what-is-sql'));
+  document.getElementById('nav-writing-1').addEventListener('click', () => loadLesson('writing-1'));
+  document.getElementById('modalCloseBtn').addEventListener('click', hideIntroModal);
+  document.getElementById('modalStartBtn').addEventListener('click', hideIntroModal);
+
+  document.getElementById('chatCloseBtn').addEventListener('click', closeChatPanel);
+  document.getElementById('chatSendBtn').addEventListener('click', () => {
+    const inputBox = document.getElementById('chatInputBox');
+    const value = inputBox.value.trim();
+    inputBox.value = '';
+    closeChatPanel();
+    if (typeof currentChatSubmitHandler === 'function'){
+      currentChatSubmitHandler(value);
+    }
+  });
+  document.getElementById('chatInputBox').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      document.getElementById('chatSendBtn').click();
+    }
+  });
+  document.getElementById('chatCtaBtn').addEventListener('click', closeChatPanel);
+  document.getElementById('emailViewerCloseBtn').addEventListener('click', closeEmailViewer);
+  document.getElementById('solutionCloseBtn').addEventListener('click', hideSolutionPopup);
+
+  if (localStorage.getItem('qops_skillcheck1_unlocked') === 'true'){
+    unlockSkillCheck1();
+  }
+  if (localStorage.getItem('qops_writing2_unlocked') === 'true'){
+    const navEl = document.getElementById('nav-writing-2');
+    navEl.classList.remove('locked');
+    navEl.onclick = () => loadLesson('writing-2');
+  }
+  if (localStorage.getItem('qops_writing3_unlocked') === 'true'){
+    const navEl = document.getElementById('nav-writing-3');
+    navEl.classList.remove('locked');
+    navEl.onclick = () => loadLesson('writing-3');
+  }
+  if (localStorage.getItem('qops_skillcheck2_unlocked') === 'true'){
+    unlockSkillCheck2();
+  }
+
+  updateOverallProgress();
+  loadLesson('what-is-sql');
+});
+</script>
+
+<div class="email-notification hidden" id="emailNotification">
+  <div class="email-avatar" id="emailNotifAvatar">A</div>
+  <div>
+    <div class="en-name" id="emailNotifName">Ana</div>
+    <div class="en-sub">New Email</div>
+  </div>
+</div>
+
+<div class="email-viewer-overlay hidden" id="emailViewerOverlay">
+  <div class="email-viewer-box">
+    <div class="ev-titlebar">
+      <span>//ProdEnv Mail</span>
+      <span class="ev-close" id="emailViewerCloseBtn">×</span>
+    </div>
+    <div class="ev-body" id="emailViewerBody"></div>
+  </div>
+</div>
+
+<div class="schema-floater" id="schemaFloater"></div>
+
+<div class="solution-overlay hidden" id="solutionOverlay">
+  <div class="solution-box">
+    <div class="sol-title">Solution</div>
+    <div class="sol-note">Viewing this won't mark the exercise complete.</div>
+    <pre id="solutionText" oncopy="return false;" oncontextmenu="return false;"></pre>
+    <div class="solution-close-row">
+      <button class="solution-close-btn" id="solutionCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
