@@ -486,7 +486,7 @@
       <path d="M16.5 8.5a5 5 0 0 1 0 7"></path>
       <path d="M19 6a9 9 0 0 1 0 12"></path>
     </svg>
-    <svg id="adminToggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="cursor:pointer;">
+    <svg id="adminToggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="display:none;">
       <path d="M12 2v8"></path>
       <path d="M6.3 6.3a9 9 0 1 0 11.4 0"></path>
     </svg>
@@ -1251,6 +1251,13 @@ function adminResetAll(){
 document.getElementById('adminToggle').addEventListener('click', (e) => {
   e.stopPropagation();
   document.getElementById('adminPanel').classList.toggle('hidden');
+});
+// Dev Tools has no visible trigger in the public build — open it with Ctrl+Shift+D (Cmd+Shift+D on Mac).
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd'){
+    e.preventDefault();
+    document.getElementById('adminPanel').classList.toggle('hidden');
+  }
 });
 document.addEventListener('click', (e) => {
   const panel = document.getElementById('adminPanel');
