@@ -1,7 +1,9 @@
 # 🖥️ ProdEnv
 > **A narrative-driven, client-side SQL training environment simulating a live data analyst workstation.**
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-ProdEnv-34d399?style=for-the-badge&logo=github)](https://davidleesee.github.io/prodenv/index.html target="_blank")
+<a href="https://davidleesee.github.io/prodenv/index.html" target="_blank">
+  <img src="https://img.shields.io/badge/Live_Demo-ProdEnv-34d399?style=for-the-badge&logo=github" alt="Live Demo" />
+</a>
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 [![Tech: WebAssembly](https://img.shields.io/badge/Tech-WebAssembly_--_sql.js-6366f1?style=for-the-badge)](https://sql.js.org/)
 
